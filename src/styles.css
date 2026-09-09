@@ -1151,6 +1151,13 @@ button:disabled {
   margin-bottom: 32px;
 }
 
+.view-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
 .view-header h1,
 .form-main-header h1 {
   margin: 0;
@@ -3256,6 +3263,15 @@ button:disabled {
   }
 
   .view-header .button {
+    width: 100%;
+  }
+
+  .view-header-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .view-header-actions .button {
     width: 100%;
   }
 

@@ -7,17 +7,24 @@ service cloud.firestore {
     }
 
     function isAgent() {
-      return signedIn() && request.auth.token.agent == true;
+      return signedIn() && request.auth.token.get('agent', false) == true;
+    }
+
+    function isAnonymousGuest() {
+      return signedIn() &&
+        request.auth.token.firebase.sign_in_provider == 'anonymous';
+    }
+
+    function owns(data) {
+      return signedIn() && data.ownerId == request.auth.uid;
     }
 
     match /insuranceSubmissions/{recordId} {
-      allow read: if isAgent() || (signedIn() && resource.data.ownerId == request.auth.uid);
-      allow create: if isAgent() || (signedIn() && request.resource.data.ownerId == request.auth.uid);
+      allow read: if isAgent() || owns(resource.data);
+      allow create: if isAgent() || (isAnonymousGuest() && owns(request.resource.data)) || owns(request.resource.data);
       allow update: if isAgent() ||
-        (signedIn() &&
-          resource.data.ownerId == request.auth.uid &&
-          request.resource.data.ownerId == request.auth.uid);
-      allow delete: if isAgent() || (signedIn() && resource.data.ownerId == request.auth.uid);
+        (owns(resource.data) && owns(request.resource.data));
+      allow delete: if isAgent() || owns(resource.data);
     }
   }
 }

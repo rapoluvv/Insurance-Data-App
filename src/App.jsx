@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   clearDraftSnapshot,
   exportRecords,
@@ -63,6 +63,19 @@ function getViewFromHash() {
   if (typeof window === 'undefined') return 'overview';
   const candidate = window.location.hash.replace(/^#\/?/, '');
   return ['overview', 'records', 'form'].includes(candidate) ? candidate : 'overview';
+}
+
+function getInviteContext() {
+  if (typeof window === 'undefined') {
+    return { isInvite: false, inviteId: '', invitedById: '', invitedByName: '' };
+  }
+  const params = new URLSearchParams(window.location.search);
+  return {
+    isInvite: params.get('invite') === '1',
+    inviteId: params.get('inviteId') || '',
+    invitedById: params.get('agentId') || '',
+    invitedByName: params.get('agentName') || '',
+  };
 }
 
 function getDemoProfileName(role) {
@@ -301,6 +314,8 @@ function Icon({ name, size = 18 }) {
     grid: <><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></>,
     file: <><path d="M6 3.5h8l4 4V20.5H6z" /><path d="M14 3.5v4h4M9 12h6M9 16h6" /></>,
     plus: <><path d="M12 5v14M5 12h14" /></>,
+    link: <><path d="m10 13 4-4" /><path d="M7.5 16.5 6 18a3.2 3.2 0 0 1-4.5-4.5l3-3a3.2 3.2 0 0 1 4.5 0M16.5 7.5 18 6A3.2 3.2 0 0 0 13.5 1.5l-3 3a3.2 3.2 0 0 0 0 4.5" /></>,
+    share: <><circle cx="18" cy="5" r="2.5" /><circle cx="6" cy="12" r="2.5" /><circle cx="18" cy="19" r="2.5" /><path d="m8.2 10.8 7.5-4.4M8.2 13.2l7.5 4.4" /></>,
     chevron: <path d="m9 5 7 7-7 7" />,
     back: <><path d="m15 5-7 7 7 7" /><path d="M8 12h11" /></>,
     arrow: <><path d="M5 12h13" /><path d="m13 6 6 6-6 6" /></>,
@@ -708,7 +723,7 @@ function ActivityChart({ records }) {
   );
 }
 
-function OverviewView({ role, user, records, currentTime, isGuest, isAnonymousGuest, onExitGuest, onStartNew, onContinueDraft, onViewRecords, browserDraft }) {
+function OverviewView({ role, user, records, currentTime, isGuest, isAnonymousGuest, onCopyInviteLink, onExitGuest, onStartNew, onContinueDraft, onViewRecords, browserDraft }) {
   const submitted = records.filter((record) => record.status === 'submitted');
   const drafts = records.filter((record) => record.status === 'draft');
   const totalPremium = submitted.reduce((sum, record) => sum + Number(record.premium || 0), 0);
@@ -722,10 +737,10 @@ function OverviewView({ role, user, records, currentTime, isGuest, isAnonymousGu
           <h1>{isAgent ? 'Your databook' : 'Your submissions'}</h1>
           <p>{isAgent ? 'A clear working view of every customer record in motion.' : 'Pick up where you left off or review a submitted record.'}</p>
         </div>
-        <button className="button button-primary" onClick={onStartNew} type="button">
-          <Icon name="plus" size={17} />
-          New intake
-        </button>
+        <div className="view-header-actions">
+          {isAgent && <button className="button button-secondary" onClick={onCopyInviteLink} type="button"><Icon name="share" size={16} /> Share customer link</button>}
+          <button className="button button-primary" onClick={onStartNew} type="button"><Icon name="plus" size={17} /> New intake</button>
+        </div>
       </header>
 
       {isGuest && (
@@ -1249,6 +1264,9 @@ function App() {
   const [profileName, setProfileName] = useState('');
   const [profileError, setProfileError] = useState('');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const inviteContext = useMemo(() => getInviteContext(), []);
+  const autoIntakeOpened = useRef(false);
+  const inviteAuthStarted = useRef(false);
 
   const isGuestMode = hasFirebaseConfig && ['guest', 'anonymous'].includes(authSession.user?.mode);
   const isAnonymousGuest = hasFirebaseConfig && authSession.user?.mode === 'anonymous';
@@ -1265,10 +1283,28 @@ function App() {
   useEffect(() => {
     if (!hasFirebaseConfig) return undefined;
     return subscribeToAuth(({ user: signedInUser, error }) => {
+      if (!signedInUser && !error && inviteContext.isInvite && !inviteAuthStarted.current) {
+        inviteAuthStarted.current = true;
+        setAuthSession({ loading: true, user: null, error: null });
+        signInAnonymouslyUser()
+          .then((guestUser) => {
+            setAuthSession({ loading: false, user: guestUser, error: null });
+            setRole('customer');
+          })
+          .catch((authError) => setAuthSession({ loading: false, user: null, error: authError }));
+        return;
+      }
       setAuthSession({ loading: false, user: signedInUser, error });
       if (signedInUser) setRole(signedInUser.role);
     });
-  }, []);
+  }, [inviteContext.isInvite]);
+
+  useEffect(() => {
+    if (hasFirebaseConfig || !inviteContext.isInvite || authSession.user) return;
+    const guest = getGuestSession();
+    setAuthSession({ loading: false, user: guest, error: null });
+    setRole('customer');
+  }, [authSession.user, inviteContext.isInvite]);
 
   useEffect(() => {
     const handleHashChange = () => setViewState(getViewFromHash());
@@ -1284,7 +1320,13 @@ function App() {
     let isMounted = true;
     loadRecords(authSession.user)
       .then((loadedRecords) => {
-        if (isMounted) setRecords(loadedRecords);
+        if (!isMounted) return;
+        setRecords(loadedRecords);
+        const currentRole = authSession.user?.role || role;
+        if (!autoIntakeOpened.current && (inviteContext.isInvite || (currentRole !== 'agent' && loadedRecords.length === 0))) {
+          autoIntakeOpened.current = true;
+          setView('form', { replace: true });
+        }
       })
       .catch((error) => {
         if (isMounted) {
@@ -1293,7 +1335,7 @@ function App() {
         }
       });
     return () => { isMounted = false; };
-  }, [authSession.loading, authSession.user]);
+  }, [authSession.loading, authSession.user, inviteContext.isInvite, role]);
 
   useEffect(() => {
     if (view === 'form' && hasFormContent(form)) saveDraftSnapshot(form, authSession.user);
@@ -1327,6 +1369,38 @@ function App() {
 
   function notify(message, tone = 'success') {
     setToast({ message, tone });
+  }
+
+  async function handleCopyInviteLink() {
+    const params = new URLSearchParams({
+      invite: '1',
+      inviteId: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+      agentId: user.id,
+      agentName: user.name,
+    });
+    const url = new URL(window.location.href);
+    url.search = `?${params.toString()}`;
+    url.hash = '/form';
+
+    try {
+      if (typeof navigator.share === 'function') {
+        await navigator.share({
+          title: 'Databook customer intake',
+          text: 'Complete your insurance intake in Databook.',
+          url: url.toString(),
+        });
+        notify('Customer intake link shared.');
+        return;
+      }
+      if (!navigator.clipboard?.writeText) {
+        throw new Error('Clipboard access is unavailable in this browser.');
+      }
+      await navigator.clipboard.writeText(url.toString());
+      notify('Customer intake link copied. It opens as a guest and starts the form.');
+    } catch (error) {
+      if (error?.name === 'AbortError') return;
+      notify(error.message || 'The customer link could not be copied.', 'error');
+    }
   }
 
   function setView(nextView, { replace = false } = {}) {
@@ -1417,7 +1491,8 @@ function App() {
     setRecords([]);
     setSelectedRecord(null);
     setLoadError('');
-    setView('overview');
+    autoIntakeOpened.current = true;
+    setView('form', { replace: true });
     notify('Guest mode enabled. Your entries will stay in this browser.');
   }
 
@@ -1561,6 +1636,9 @@ function App() {
         : existing?.ownerId || session?.id || user.id,
       ownerName: form.fullName || existing?.ownerName || 'Unnamed customer',
       agentName: role === 'agent' ? user.name : existing?.agentName || 'Riya Menon',
+      invitedById: existing?.invitedById || inviteContext.invitedById || '',
+      invitedByName: existing?.invitedByName || inviteContext.invitedByName || '',
+      inviteId: existing?.inviteId || inviteContext.inviteId || '',
       submittedById: existing?.submittedById || session?.id || user.id,
       submittedByName: existing?.submittedById ? existing.submittedByName : submittedByName,
       submittedByEmail: existing?.submittedById ? existing.submittedByEmail || '' : session?.email || '',
@@ -1585,7 +1663,10 @@ function App() {
       setRecords((current) => result.records || [record, ...current.filter((item) => item.id !== record.id)]);
       return record;
     } catch (error) {
-      notify(error.message || 'The record could not be saved.', 'error');
+      const message = error?.code === 'permission-denied' || /Missing or insufficient permissions/i.test(error?.message || '')
+        ? 'Firebase rejected this record. Publish the latest firestore.rules to the same Firebase project, then try again.'
+        : error.message || 'The record could not be saved.';
+      notify(message, 'error');
       return null;
     } finally {
       setIsSaving(false);
@@ -1741,7 +1822,7 @@ function App() {
           </button>
         </div>
         {loadError && <div className="load-error" role="alert"><Icon name="info" size={16} />{loadError}</div>}
-        {view === 'overview' && <OverviewView browserDraft={browserDraft} currentTime={currentTime} isAnonymousGuest={isAnonymousGuest} isGuest={isGuestMode} onContinueDraft={continueBrowserDraft} onExitGuest={handleExitGuest} onStartNew={openNewForm} onViewRecords={() => setView('records')} records={scopedRecords} role={role} user={user} />}
+        {view === 'overview' && <OverviewView browserDraft={browserDraft} currentTime={currentTime} isAnonymousGuest={isAnonymousGuest} isGuest={isGuestMode} onContinueDraft={continueBrowserDraft} onCopyInviteLink={handleCopyInviteLink} onExitGuest={handleExitGuest} onStartNew={openNewForm} onViewRecords={() => setView('records')} records={scopedRecords} role={role} user={user} />}
         {view === 'records' && <RecordsView isAnonymousGuest={isAnonymousGuest} isGuest={isGuestMode} onDelete={handleDelete} onEdit={openEdit} onExport={() => { exportRecords(scopedRecords); notify('Export started.'); }} onImport={handleImport} onOpen={setSelectedRecord} onStartNew={openNewForm} records={scopedRecords} role={role} search={search} setSearch={setSearch} setStatusFilter={setStatusFilter} statusFilter={statusFilter} />}
         {view === 'form' && <FormView activeStep={activeStep} editingId={editingId} fieldErrors={fieldErrors} form={form} highestStep={highestStep} isAnonymousGuest={isAnonymousGuest} isGuest={isGuestMode} isSaving={isSaving} onAddRepeater={handleAddRepeater} onBack={() => setView('overview')} onChange={handleChange} onNext={handleNext} onRemoveRepeater={handleRemoveRepeater} onRepeaterChange={handleRepeaterChange} onSaveDraft={handleSaveDraft} onStepChange={handleStepChange} onSubmit={handleSubmit} role={role} user={user} />}
       </main>

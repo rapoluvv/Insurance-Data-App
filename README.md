@@ -66,6 +66,8 @@ Google sign-in uses Firebase's popup flow. Make sure your development and produc
 
 The login page also includes **Create an account** for Email/Password users. Google creates a Firebase account automatically the first time a new Google user completes the popup flow. New accounts are customers by default; assign the agent claim separately for staff accounts.
 
+Agents can use **Share customer link** on the overview screen to open the device share menu on supported mobile browsers (WhatsApp, Messages, email, etc.). Desktop browsers without the Web Share API copy the invite URL instead. Opening that URL automatically creates a Firebase anonymous guest session and opens the intake form. The link is an onboarding shortcut, not an access-control token; Firestore Rules still enforce ownership, and the submitted record includes the inviting agent metadata when present. Customers with zero records also open directly into a new intake after signing in.
+
 ### 4. Create the Firestore database
 
 1. Open **Build → Firestore Database → Create database**.
@@ -79,6 +81,8 @@ The rules allow:
 - Agent accounts with the `agent: true` custom claim to review all submissions.
 - Registered customers to read and write only documents whose `ownerId` is their Firebase UID.
 - Anonymous guest submitters to write and later read only their own submitted documents.
+
+If the app reports `Missing or insufficient permissions` while a guest submits, republish these rules in the Firebase Console and confirm the project matches `VITE_FIREBASE_PROJECT_ID`. Editing the local file alone does not update Firebase.
 
 ### 5. Create test users
 
