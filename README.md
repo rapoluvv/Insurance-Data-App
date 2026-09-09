@@ -1,4 +1,4 @@
-# Casebook — Insurance Data App
+# Databook — Insurance Data App
 
 React/Vite replacement for the reference `Insurance Data Form` app. The interface keeps the multi-step insurance workflow while giving agents and customers role-scoped views of their records.
 
@@ -22,13 +22,13 @@ You need a Google account for the [Firebase Console](https://console.firebase.go
 ### 1. Create the Firebase project
 
 1. Open the [Firebase Console](https://console.firebase.google.com/) and select **Add project**.
-2. Name it something like `casebook-insurance`.
+2. Name it something like `databook-insurance`.
 3. Google Analytics is optional for this app; you can skip it during setup.
 
 ### 2. Register the web app
 
 1. From the project overview, click the **Web** icon (`</>`).
-2. Use `casebook-web` as the app nickname.
+2. Use `databook-web` as the app nickname.
 3. Do not enable Firebase Hosting yet unless you want to deploy from Firebase.
 4. Firebase will show a `firebaseConfig` object. Keep that page open; you will copy its six values next.
 
@@ -63,6 +63,8 @@ In Firebase Console, open **Build → Authentication → Get started → Sign-in
 Anonymous sign-in follows Firebase's [web anonymous authentication flow](https://firebase.google.com/docs/auth/web/anonymous-auth). A guest still receives a Firebase UID, but no recoverable account or password.
 
 Google sign-in uses Firebase's popup flow. Make sure your development and production domains are listed under **Authentication → Settings → Authorized domains**. Add `localhost` and `127.0.0.1` for local testing if they are not already present.
+
+The login page also includes **Create an account** for Email/Password users. Google creates a Firebase account automatically the first time a new Google user completes the popup flow. New accounts are customers by default; assign the agent claim separately for staff accounts.
 
 ### 4. Create the Firestore database
 
@@ -102,7 +104,7 @@ The project includes a one-time Admin SDK helper:
 3. In PowerShell, point the Admin SDK at that file:
 
    ```powershell
-   $env:GOOGLE_APPLICATION_CREDENTIALS="C:\secure\casebook-firebase-adminsdk.json"
+   $env:GOOGLE_APPLICATION_CREDENTIALS="C:\secure\databook-firebase-adminsdk.json"
    ```
 
 4. Run the helper with the agent's email:
@@ -122,7 +124,7 @@ For a new agent:
 
 ```powershell
 Set-Location "C:\path\to\Insurance Data App"
-$env:GOOGLE_APPLICATION_CREDENTIALS="C:\secure\casebook-firebase-adminsdk.json"
+$env:GOOGLE_APPLICATION_CREDENTIALS="C:\secure\databook-firebase-adminsdk.json"
 npm install
 npm run set-agent-role -- agent@example.com
 Remove-Item Env:GOOGLE_APPLICATION_CREDENTIALS

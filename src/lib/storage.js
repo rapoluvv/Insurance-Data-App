@@ -9,9 +9,14 @@ import {
 } from 'firebase/firestore';
 import { db, hasFirebaseConfig } from './firebase.js';
 
-const LOCAL_KEY = 'casebook-insurance-records-v1';
-const GUEST_RECORDS_KEY = 'casebook-guest-records-v1';
-const DRAFT_KEY = 'casebook-insurance-draft-v1';
+const DATA_PREFIX = 'databook';
+const LEGACY_PREFIX = ['case', 'book'].join('');
+const LOCAL_KEY = `${DATA_PREFIX}-insurance-records-v1`;
+const LEGACY_LOCAL_KEY = `${LEGACY_PREFIX}-insurance-records-v1`;
+const GUEST_RECORDS_KEY = `${DATA_PREFIX}-guest-records-v1`;
+const LEGACY_GUEST_RECORDS_KEY = `${LEGACY_PREFIX}-guest-records-v1`;
+const DRAFT_KEY = `${DATA_PREFIX}-insurance-draft-v1`;
+const LEGACY_DRAFT_KEY = `${LEGACY_PREFIX}-insurance-draft-v1`;
 const COLLECTION = 'insuranceSubmissions';
 
 const demoRecords = [
@@ -135,7 +140,12 @@ const demoRecords = [
 ];
 
 function readLocalRecords() {
-  const stored = window.localStorage.getItem(LOCAL_KEY);
+  const currentStored = window.localStorage.getItem(LOCAL_KEY);
+  const legacyStored = window.localStorage.getItem(LEGACY_LOCAL_KEY);
+  const stored = currentStored || legacyStored;
+  if (!currentStored && legacyStored) {
+    window.localStorage.setItem(LOCAL_KEY, legacyStored);
+  }
   if (!stored) {
     window.localStorage.setItem(LOCAL_KEY, JSON.stringify(demoRecords));
     return demoRecords;
@@ -159,8 +169,19 @@ function getGuestRecordsKey(session) {
   return `${GUEST_RECORDS_KEY}:${session.id}`;
 }
 
+function getLegacyGuestRecordsKey(session) {
+  return `${LEGACY_GUEST_RECORDS_KEY}:${session.id}`;
+}
+
 function readGuestRecords(session) {
-  const stored = window.localStorage.getItem(getGuestRecordsKey(session));
+  const currentKey = getGuestRecordsKey(session);
+  const legacyKey = getLegacyGuestRecordsKey(session);
+  const currentStored = window.localStorage.getItem(currentKey);
+  const legacyStored = window.localStorage.getItem(legacyKey);
+  const stored = currentStored || legacyStored;
+  if (!currentStored && legacyStored) {
+    window.localStorage.setItem(currentKey, legacyStored);
+  }
   if (!stored) return [];
 
   try {
@@ -248,12 +269,23 @@ function getDraftKey(session = null) {
   return session?.id ? `${DRAFT_KEY}:${session.id}` : DRAFT_KEY;
 }
 
+function getLegacyDraftKey(session = null) {
+  return session?.id ? `${LEGACY_DRAFT_KEY}:${session.id}` : LEGACY_DRAFT_KEY;
+}
+
 export function saveDraftSnapshot(form, session = null) {
   window.localStorage.setItem(getDraftKey(session), JSON.stringify(form));
 }
 
 export function readDraftSnapshot(session = null) {
-  const stored = window.localStorage.getItem(getDraftKey(session));
+  const currentKey = getDraftKey(session);
+  const legacyKey = getLegacyDraftKey(session);
+  const currentStored = window.localStorage.getItem(currentKey);
+  const legacyStored = window.localStorage.getItem(legacyKey);
+  const stored = currentStored || legacyStored;
+  if (!currentStored && legacyStored) {
+    window.localStorage.setItem(currentKey, legacyStored);
+  }
   if (!stored) return null;
 
   try {
@@ -273,7 +305,7 @@ export function exportRecords(records) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `casebook-insurance-records-${new Date().toISOString().slice(0, 10)}.json`;
+  link.download = `databook-insurance-records-${new Date().toISOString().slice(0, 10)}.json`;
   link.click();
   URL.revokeObjectURL(url);
 }

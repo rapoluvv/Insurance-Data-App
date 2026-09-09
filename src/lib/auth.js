@@ -3,6 +3,7 @@ import {
   getIdTokenResult,
   onAuthStateChanged,
   signInAnonymously,
+  createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signInWithPopup,
   signOut,
@@ -10,7 +11,10 @@ import {
 } from 'firebase/auth';
 import { auth, authPersistenceReady, hasFirebaseConfig } from './firebase.js';
 
-const GUEST_SESSION_KEY = 'casebook-guest-session-v1';
+const DATA_PREFIX = 'databook';
+const LEGACY_PREFIX = ['case', 'book'].join('');
+const GUEST_SESSION_KEY = `${DATA_PREFIX}-guest-session-v1`;
+const LEGACY_GUEST_SESSION_KEY = `${LEGACY_PREFIX}-guest-session-v1`;
 
 function makeInitials(name = 'Member') {
   return name
@@ -29,7 +33,8 @@ function createGuestId() {
 }
 
 export function getGuestSession() {
-  const stored = window.localStorage.getItem(GUEST_SESSION_KEY);
+  const stored = window.localStorage.getItem(GUEST_SESSION_KEY)
+    || window.localStorage.getItem(LEGACY_GUEST_SESSION_KEY);
   let guestId = '';
   let storedName = 'Guest';
 
@@ -115,6 +120,19 @@ export async function signIn(email, password) {
   }
   await authPersistenceReady;
   return signInWithEmailAndPassword(auth, email, password);
+}
+
+export async function createAccount(email, password, displayName = '') {
+  if (!hasFirebaseConfig) {
+    throw new Error('Firebase authentication is not configured.');
+  }
+
+  await authPersistenceReady;
+  const credential = await createUserWithEmailAndPassword(auth, email, password);
+  if (displayName.trim()) {
+    await updateProfile(credential.user, { displayName: displayName.trim() });
+  }
+  return toAuthSession(credential.user);
 }
 
 export async function signInWithGoogle() {

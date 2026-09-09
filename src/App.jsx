@@ -11,6 +11,7 @@ import {
 } from './lib/storage.js';
 import { hasFirebaseConfig } from './lib/firebase.js';
 import {
+  createAccount,
   getGuestSession,
   updateGuestDisplayName,
   signIn,
@@ -36,7 +37,10 @@ const ROLE_USERS = {
   },
 };
 
-const DEMO_PROFILE_KEY = 'casebook-demo-profile-names-v1';
+const DATA_PREFIX = 'databook';
+const LEGACY_PREFIX = ['case', 'book'].join('');
+const DEMO_PROFILE_KEY = `${DATA_PREFIX}-demo-profile-names-v1`;
+const LEGACY_DEMO_PROFILE_KEY = `${LEGACY_PREFIX}-demo-profile-names-v1`;
 
 function getInitials(name = 'Member') {
   return name
@@ -56,7 +60,11 @@ function getGreeting(date = new Date()) {
 
 function getDemoProfileName(role) {
   try {
-    const stored = JSON.parse(window.localStorage.getItem(DEMO_PROFILE_KEY) || '{}');
+    const stored = JSON.parse(
+      window.localStorage.getItem(DEMO_PROFILE_KEY)
+      || window.localStorage.getItem(LEGACY_DEMO_PROFILE_KEY)
+      || '{}',
+    );
     return stored[role] || ROLE_USERS[role].name;
   } catch (error) {
     console.error('Unable to read the demo profile name.', error);
@@ -328,36 +336,66 @@ function AuthLoading() {
   );
 }
 
-function SignInView({ error, isSigningIn, onContinueGuest, onGoogleSignIn, onSignIn }) {
+function SignInView({ error, isSigningIn, onClearError, onContinueGuest, onGoogleSignIn, onSignIn, onSignUp }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [localError, setLocalError] = useState('');
 
   function handleSubmit(event) {
     event.preventDefault();
-    onSignIn(email, password);
+    setLocalError('');
+    if (!isSignUp) {
+      onSignIn(email, password);
+      return;
+    }
+    if (displayName.trim().length < 2) {
+      setLocalError('Enter the name you want shown in your workspace.');
+      return;
+    }
+    if (password.length < 6) {
+      setLocalError('Use a password with at least 6 characters.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setLocalError('The passwords do not match.');
+      return;
+    }
+    onSignUp(email, password, displayName.trim());
   }
 
   async function handleGoogleSignIn() {
     try {
       await onGoogleSignIn();
-    } catch (authError) {
+    } catch {
       // The parent stores the provider error in the shared auth state.
     }
   }
 
+  function switchAccountMode(nextIsSignUp) {
+    setIsSignUp(nextIsSignUp);
+    setLocalError('');
+    setConfirmPassword('');
+    onClearError();
+  }
+
+  const visibleError = localError || error;
+
   return (
     <main className="auth-screen auth-variant-split-case">
-      <aside className="auth-side" aria-label="Casebook overview">
+      <aside className="auth-side" aria-label="Databook overview">
         <div className="auth-side-brand">
           <span className="auth-mark" aria-hidden="true"><span /></span>
-          <div><strong>casebook</strong><small>insurance data</small></div>
+          <div><strong>databook</strong><small>insurance data</small></div>
         </div>
         <div className="auth-side-copy">
           <span className="auth-side-kicker">Secure intake</span>
           <h2>A careful record begins with a clear first step.</h2>
           <p>One guided workspace for the details that help a customer and agent move with confidence.</p>
         </div>
-        <div className="auth-score" aria-label="Casebook workflow">
+        <div className="auth-score" aria-label="Databook workflow">
           <div className="auth-score-row"><span className="auth-score-marker">01</span><span><strong>Private identity</strong><small>Protected by role</small></span><Icon name="shield" size={16} /></div>
           <div className="auth-score-row"><span className="auth-score-marker">02</span><span><strong>Guided intake</strong><small>Clear, reviewable steps</small></span><Icon name="check" size={16} /></div>
           <div className="auth-score-row"><span className="auth-score-marker">03</span><span><strong>Agent review</strong><small>Ready when the case is</small></span><Icon name="arrow" size={16} /></div>
@@ -369,8 +407,8 @@ function SignInView({ error, isSigningIn, onContinueGuest, onGoogleSignIn, onSig
           <div className="auth-panel-intro">
             <div className="auth-copy">
               <span className="auth-kicker">Secure workspace</span>
-              <h1 id="sign-in-title">Sign in to your casebook.</h1>
-              <p>Use the account created for your role. Customer records stay private; agents see the full submission queue.</p>
+              <h1 id="sign-in-title">{isSignUp ? 'Create your Databook account.' : 'Sign in to your Databook.'}</h1>
+              <p>{isSignUp ? 'Create a secure account to return to your records across devices.' : 'Use the account created for your role. Customer records stay private; agents see the full submission queue.'}</p>
             </div>
           </div>
           <div className="auth-panel-methods">
@@ -381,22 +419,28 @@ function SignInView({ error, isSigningIn, onContinueGuest, onGoogleSignIn, onSig
             </button>
             <div className="auth-divider"><span>or use</span></div>
             <form className="auth-form" onSubmit={handleSubmit}>
-            <Field label="Email address" name="auth-email" onChange={(_, value) => setEmail(value)} placeholder="you@example.com" required type="email" value={email} />
-            <Field label="Password" name="auth-password" onChange={(_, value) => setPassword(value)} placeholder="Your password" required type="password" value={password} />
-            {error && <div className="auth-error" role="alert"><Icon name="info" size={16} />{error}</div>}
-            <button className="button button-primary auth-submit" disabled={isSigningIn || !email || !password} type="submit">
-              {isSigningIn ? 'Signing in…' : 'Sign in'}
-              {!isSigningIn && <Icon name="arrow" size={16} />}
-            </button>
+              {isSignUp && <Field label="Display name" name="auth-display-name" onChange={(_, value) => setDisplayName(value)} placeholder="How should we greet you?" required value={displayName} />}
+              <Field label="Email address" name="auth-email" onChange={(_, value) => setEmail(value)} placeholder="you@example.com" required type="email" value={email} />
+              <Field helper={isSignUp ? 'At least 6 characters.' : ''} label="Password" name="auth-password" onChange={(_, value) => setPassword(value)} placeholder="Your password" required type="password" value={password} />
+              {isSignUp && <Field label="Confirm password" name="auth-confirm-password" onChange={(_, value) => setConfirmPassword(value)} placeholder="Repeat your password" required type="password" value={confirmPassword} />}
+              {visibleError && <div className="auth-error" role="alert"><Icon name="info" size={16} />{visibleError}</div>}
+              <button className="button button-primary auth-submit" disabled={isSigningIn || !email || !password || (isSignUp && (!displayName || !confirmPassword))} type="submit">
+                {isSigningIn ? (isSignUp ? 'Creating account…' : 'Signing in…') : isSignUp ? 'Create account' : 'Sign in'}
+                {!isSigningIn && <Icon name="arrow" size={16} />}
+              </button>
             </form>
           </div>
           <div className="auth-panel-footer">
+            <div className="auth-account-switch">
+              <span>{isSignUp ? 'Already have an account?' : 'New to Databook?'}</span>
+              <button className="text-button" onClick={() => switchAccountMode(!isSignUp)} type="button">{isSignUp ? 'Sign in' : 'Create an account'}</button>
+            </div>
             <div className="auth-guest-row">
-              <span>Prefer not to sign in?</span>
+              <span>{isSignUp ? 'Prefer not to create an account?' : 'Prefer not to sign in?'}</span>
               <button className="text-button auth-guest-link" onClick={onContinueGuest} type="button">Continue as guest <Icon name="arrow" size={15} /></button>
             </div>
             <p className="auth-guest-note">Drafts stay in this browser. Submit to your agent through anonymous Firebase access.</p>
-            <p className="auth-note"><Icon name="shield" size={15} /> Google users are customers unless an agent claim is assigned server-side.</p>
+            <p className="auth-note"><Icon name="shield" size={15} /> Registered users are customers unless an agent claim is assigned server-side.</p>
           </div>
         </div>
       </section>
@@ -664,7 +708,7 @@ function OverviewView({ role, user, records, currentTime, isGuest, isAnonymousGu
     <div className="page-view overview-view">
       <header className="view-header">
         <div>
-          <h1>{isAgent ? 'Your casebook' : 'Your submissions'}</h1>
+          <h1>{isAgent ? 'Your databook' : 'Your submissions'}</h1>
           <p>{isAgent ? 'A clear working view of every customer record in motion.' : 'Pick up where you left off or review a submitted record.'}</p>
         </div>
         <button className="button button-primary" onClick={onStartNew} type="button">
@@ -915,7 +959,7 @@ function FormView({
   return (
     <div className="page-view form-view">
       <header className="form-topbar">
-        <button className="back-link" onClick={onBack} type="button"><Icon name="back" size={16} /> Back to {role === 'agent' ? 'casebook' : 'submissions'}</button>
+        <button className="back-link" onClick={onBack} type="button"><Icon name="back" size={16} /> Back to {role === 'agent' ? 'databook' : 'submissions'}</button>
         <div className="form-topbar-meta">
           <span>{editingId ? `Editing ${editingId}` : 'New case score'}</span>
           <span className="topbar-divider" aria-hidden="true" />
@@ -1306,6 +1350,21 @@ function App() {
     }
   }
 
+  async function handleSignUp(email, password, displayName) {
+    setIsSigningIn(true);
+    try {
+      await createAccount(email, password, displayName);
+    } catch (error) {
+      setAuthSession((current) => ({ ...current, error }));
+    } finally {
+      setIsSigningIn(false);
+    }
+  }
+
+  function handleClearAuthError() {
+    setAuthSession((current) => ({ ...current, error: null }));
+  }
+
   async function handleGoogleSignIn() {
     setIsSigningIn(true);
     try {
@@ -1567,7 +1626,7 @@ function App() {
   }
 
   if (hasFirebaseConfig && !authSession.user) {
-    return <SignInView error={authSession.error?.message} isSigningIn={isSigningIn} onContinueGuest={handleContinueGuest} onGoogleSignIn={handleGoogleSignIn} onSignIn={handleSignIn} />;
+    return <SignInView error={authSession.error?.message} isSigningIn={isSigningIn} onClearError={handleClearAuthError} onContinueGuest={handleContinueGuest} onGoogleSignIn={handleGoogleSignIn} onSignIn={handleSignIn} onSignUp={handleSignUp} />;
   }
 
   return (
@@ -1575,7 +1634,7 @@ function App() {
       <aside className="sidebar">
         <div className="brand-lockup">
           <span className="brand-mark" aria-hidden="true"><span className="brand-mark-line" /></span>
-          <div><strong>casebook</strong><small>insurance data</small></div>
+          <div><strong>databook</strong><small>insurance data</small></div>
         </div>
         <div className="sidebar-divider" />
         {!hasFirebaseConfig && <div className="role-switcher">

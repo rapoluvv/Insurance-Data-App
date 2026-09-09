@@ -732,6 +732,21 @@ button:disabled {
   font-size: 10px;
 }
 
+.auth-account-switch {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 17px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.auth-account-switch .text-button {
+  color: var(--moss-dark);
+  font-size: 10px;
+}
+
 .auth-guest-link {
   flex: 0 0 auto;
   color: var(--moss-dark);
