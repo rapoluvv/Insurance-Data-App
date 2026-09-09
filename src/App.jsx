@@ -59,6 +59,12 @@ function getGreeting(date = new Date()) {
   return 'Good night';
 }
 
+function getViewFromHash() {
+  if (typeof window === 'undefined') return 'overview';
+  const candidate = window.location.hash.replace(/^#\/?/, '');
+  return ['overview', 'records', 'form'].includes(candidate) ? candidate : 'overview';
+}
+
 function getDemoProfileName(role) {
   try {
     const stored = JSON.parse(
@@ -1218,7 +1224,7 @@ function App() {
     error: null,
   });
   const [isSigningIn, setIsSigningIn] = useState(false);
-  const [view, setView] = useState('overview');
+  const [view, setViewState] = useState(() => getViewFromHash());
   const [records, setRecords] = useState([]);
   const [form, setForm] = useState(createInitialForm);
   const [activeStep, setActiveStep] = useState(0);
@@ -1258,6 +1264,15 @@ function App() {
       setAuthSession({ loading: false, user: signedInUser, error });
       if (signedInUser) setRole(signedInUser.role);
     });
+  }, []);
+
+  useEffect(() => {
+    const handleHashChange = () => setViewState(getViewFromHash());
+    if (!window.location.hash) {
+      window.history.replaceState(null, '', '#/overview');
+    }
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
   useEffect(() => {
@@ -1308,6 +1323,18 @@ function App() {
 
   function notify(message, tone = 'success') {
     setToast({ message, tone });
+  }
+
+  function setView(nextView, { replace = false } = {}) {
+    setViewState(nextView);
+    const nextHash = `#/${nextView}`;
+    if (window.location.hash !== nextHash) {
+      if (replace) {
+        window.history.replaceState(null, '', nextHash);
+      } else {
+        window.history.pushState(null, '', nextHash);
+      }
+    }
   }
 
   async function handleSaveProfile(event) {
