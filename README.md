@@ -132,6 +132,30 @@ Remove-Item Env:GOOGLE_APPLICATION_CREDENTIALS
 
 After the command succeeds, have the agent sign out and sign in again at the deployed site. Repeat the command for each future agent. Keep the service-account JSON in a secure password manager or secret store; never upload it with the website, commit it, or paste it into chat.
 
+## Deploy to GitHub Pages
+
+This repository is configured as a GitHub Pages project site. It deploys from the `main` branch through [`.github/workflows/deploy-pages.yml`](./.github/workflows/deploy-pages.yml) and uses the URL:
+
+```text
+https://rapoluvv.github.io/Insurance-Data-App/
+```
+
+Before the first deployment:
+
+1. In GitHub, open **Settings → Secrets and variables → Actions** for this repository.
+2. Add these repository secrets using the values from your local `.env.local`:
+   - `VITE_FIREBASE_API_KEY`
+   - `VITE_FIREBASE_AUTH_DOMAIN`
+   - `VITE_FIREBASE_PROJECT_ID`
+   - `VITE_FIREBASE_STORAGE_BUCKET`
+   - `VITE_FIREBASE_MESSAGING_SENDER_ID`
+   - `VITE_FIREBASE_APP_ID`
+3. Open **Settings → Pages** and set **Source** to **GitHub Actions**.
+4. Push to `main` or run the **Deploy Databook to GitHub Pages** workflow manually.
+5. Add `rapoluvv.github.io` to Firebase Authentication → Settings → Authorized domains so Google sign-in works on the deployed site.
+
+Do not unpublish an existing `rapoluvv.github.io` user site first. A project site at `/Insurance-Data-App/` is separate; only replace the existing project deployment if it is already connected to this same repository.
+
 ### 7. Run the connected app
 
 Stop any running Vite process, then restart it so Vite reads `.env.local`:
