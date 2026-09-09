@@ -112,15 +112,21 @@ async function toAuthSession(firebaseUser) {
 export function subscribeToAuth(listener) {
   if (!hasFirebaseConfig) return () => {};
 
-  let redirectError = null;
-  getRedirectResult(auth).catch((error) => {
-    redirectError = error;
-    listener({ user: null, error });
-  });
+  const redirectResult = getRedirectResult(auth);
 
-  return onAuthStateChanged(auth, (firebaseUser) => {
+  return onAuthStateChanged(auth, async (firebaseUser) => {
     if (!firebaseUser) {
-      listener({ user: null, error: redirectError });
+      try {
+        const result = await redirectResult;
+        if (result?.user) {
+          const user = await toAuthSession(result.user);
+          listener({ user, error: null });
+        } else {
+          listener({ user: null, error: null });
+        }
+      } catch (error) {
+        listener({ user: null, error });
+      }
       return;
     }
 
