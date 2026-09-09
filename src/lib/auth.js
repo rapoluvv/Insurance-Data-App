@@ -118,8 +118,9 @@ export function subscribeToAuth(listener) {
     if (!firebaseUser) {
       try {
         const result = await redirectResult;
-        if (result?.user) {
-          const user = await toAuthSession(result.user);
+        const redirectedUser = result?.user || auth.currentUser;
+        if (redirectedUser) {
+          const user = await toAuthSession(redirectedUser);
           listener({ user, error: null });
         } else {
           listener({ user: null, error: null });
@@ -176,13 +177,6 @@ export async function signInWithGoogle() {
   const provider = new GoogleAuthProvider();
   provider.addScope('profile');
   provider.addScope('email');
-  const mobileBrowser = typeof navigator !== 'undefined'
-    && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-  if (mobileBrowser) {
-    await signInWithRedirect(auth, provider);
-    return null;
-  }
-
   try {
     const credential = await signInWithPopup(auth, provider);
     return toAuthSession(credential.user);
