@@ -302,7 +302,24 @@ function SignInView({ error, isSigningIn, onContinueGuest, onSignIn }) {
   }
 
   return (
-    <main className="auth-screen">
+    <main className="auth-screen auth-variant-split-case">
+      <aside className="auth-side" aria-label="Casebook overview">
+        <div className="auth-side-brand">
+          <span className="auth-mark" aria-hidden="true"><span /></span>
+          <div><strong>casebook</strong><small>insurance data</small></div>
+        </div>
+        <div className="auth-side-copy">
+          <span className="auth-side-kicker">Secure intake</span>
+          <h2>A careful record begins with a clear first step.</h2>
+          <p>One guided workspace for the details that help a customer and agent move with confidence.</p>
+        </div>
+        <div className="auth-score" aria-label="Casebook workflow">
+          <div className="auth-score-row"><span className="auth-score-marker">01</span><span><strong>Private identity</strong><small>Protected by role</small></span><Icon name="shield" size={16} /></div>
+          <div className="auth-score-row"><span className="auth-score-marker">02</span><span><strong>Guided intake</strong><small>Clear, reviewable steps</small></span><Icon name="check" size={16} /></div>
+          <div className="auth-score-row"><span className="auth-score-marker">03</span><span><strong>Agent review</strong><small>Ready when the case is</small></span><Icon name="arrow" size={16} /></div>
+        </div>
+        <p className="auth-side-footer">The case score keeps every important detail in view.</p>
+      </aside>
       <section className="auth-panel" aria-labelledby="sign-in-title">
         <div className="auth-brand">
           <span className="auth-mark" aria-hidden="true"><span /></span>

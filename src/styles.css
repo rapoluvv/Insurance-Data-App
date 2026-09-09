@@ -389,50 +389,7 @@ button:disabled {
   place-items: center;
   min-height: 100vh;
   padding: 30px 18px;
-  background:
-    repeating-linear-gradient(
-      to bottom,
-      transparent 0,
-      transparent 61px,
-      rgba(46, 107, 91, 0.095) 62px
-    ),
-    var(--paper);
-}
-
-.auth-screen::before,
-.auth-screen::after {
-  position: absolute;
-  pointer-events: none;
-  content: '';
-}
-
-.auth-screen::before {
-  inset: 0;
-  z-index: -2;
-  background:
-    linear-gradient(
-      116deg,
-      transparent 0 24%,
-      rgba(200, 107, 67, 0.13) 24.1% 24.25%,
-      transparent 24.3% 100%
-    ),
-    linear-gradient(
-      68deg,
-      transparent 0 76%,
-      rgba(46, 107, 91, 0.12) 76.1% 76.25%,
-      transparent 76.3% 100%
-    );
-}
-
-.auth-screen::after {
-  top: 50%;
-  left: 50%;
-  z-index: -1;
-  width: min(720px, 86vw);
-  height: min(720px, 86vw);
-  border: 1px solid rgba(46, 107, 91, 0.15);
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
+  background: var(--paper);
 }
 
 .auth-panel {
@@ -444,6 +401,221 @@ button:disabled {
   border-top: 4px solid var(--moss);
   background: var(--white);
   box-shadow: var(--shadow);
+}
+
+.auth-variant-split-case {
+  display: grid;
+  grid-template-columns: minmax(300px, 0.95fr) minmax(420px, 1.05fr);
+  place-items: stretch;
+  padding: 0;
+  background: #fbf5e9;
+}
+
+.auth-variant-split-case::before,
+.auth-variant-split-case::after {
+  display: none;
+}
+
+.auth-side {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  overflow: hidden;
+  padding: clamp(34px, 6vw, 82px) clamp(28px, 6vw, 84px);
+  color: #f7f4eb;
+  background: #17352f;
+}
+
+.auth-side::before {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to right, transparent 0 14%, rgba(222, 236, 225, 0.14) 14% 14.12%, transparent 14.12% 100%),
+    repeating-linear-gradient(to bottom, transparent 0, transparent 57px, rgba(222, 236, 225, 0.09) 58px);
+  content: '';
+}
+
+.auth-side::after {
+  position: absolute;
+  top: -92px;
+  right: -130px;
+  width: 360px;
+  height: 360px;
+  border: 1px solid rgba(200, 107, 67, 0.5);
+  border-radius: 50%;
+  content: '';
+}
+
+.auth-side-brand,
+.auth-side-copy,
+.auth-score,
+.auth-side-footer {
+  position: relative;
+  z-index: 1;
+}
+
+.auth-side-brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.auth-side-brand strong,
+.auth-side-brand small {
+  display: block;
+}
+
+.auth-side-brand strong {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 19px;
+  letter-spacing: -0.05em;
+}
+
+.auth-side-brand small {
+  margin-top: 4px;
+  color: #b7c9bc;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.auth-side-brand .auth-mark {
+  border-color: #c9dccb;
+  background: rgba(222, 236, 225, 0.12);
+}
+
+.auth-side-brand .auth-mark::before,
+.auth-side-brand .auth-mark::after,
+.auth-side-brand .auth-mark span {
+  background: #c9dccb;
+}
+
+.auth-side-copy {
+  max-width: 410px;
+  margin-top: auto;
+  padding-top: 80px;
+}
+
+.auth-side-kicker {
+  color: #e3a487;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.auth-side-copy h2 {
+  max-width: 10ch;
+  margin: 13px 0 0;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: clamp(34px, 4vw, 54px);
+  letter-spacing: -0.07em;
+  line-height: 0.98;
+}
+
+.auth-side-copy p {
+  max-width: 36ch;
+  margin: 20px 0 0;
+  color: #b7c9bc;
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.auth-score {
+  max-width: 410px;
+  margin-top: 51px;
+  border-top: 1px solid rgba(222, 236, 225, 0.25);
+}
+
+.auth-score-row {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 12px;
+  min-height: 61px;
+  border-bottom: 1px solid rgba(222, 236, 225, 0.18);
+}
+
+.auth-score-row > span:nth-child(2) strong,
+.auth-score-row > span:nth-child(2) small {
+  display: block;
+}
+
+.auth-score-row > span:nth-child(2) strong {
+  color: #f7f4eb;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.auth-score-row > span:nth-child(2) small {
+  margin-top: 3px;
+  color: #91aea0;
+  font-size: 10px;
+}
+
+.auth-score-marker {
+  color: #e3a487;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+}
+
+.auth-score-row > .icon {
+  color: #a9c8b5;
+}
+
+.auth-side-footer {
+  margin: 30px 0 0;
+  color: #91aea0;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.03em;
+}
+
+.auth-variant-split-case .auth-panel {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: 100%;
+  max-width: none;
+  min-height: 100vh;
+  padding: clamp(38px, 7vw, 90px) clamp(28px, 8vw, 110px);
+  border: 0;
+  border-left: 1px solid #d8d4c8;
+  border-top: 0;
+  background: #fbf5e9;
+  box-shadow: none;
+}
+
+.auth-variant-split-case .auth-panel .auth-brand {
+  display: none;
+}
+
+.auth-variant-split-case .auth-copy,
+.auth-variant-split-case .auth-form,
+.auth-variant-split-case .auth-divider,
+.auth-variant-split-case .auth-guest-button,
+.auth-variant-split-case .auth-guest-note,
+.auth-variant-split-case .auth-note {
+  width: min(100%, 470px);
+}
+
+.auth-variant-split-case .auth-copy h1 {
+  max-width: 11ch;
+  font-size: clamp(38px, 4vw, 54px);
+}
+
+.auth-variant-split-case .auth-copy p {
+  max-width: 44ch;
+}
+
+.auth-variant-split-case .auth-form {
+  margin-top: 38px;
+}
+
+.auth-variant-split-case .auth-note {
+  margin-top: 25px;
 }
 
 .auth-brand {
@@ -2640,6 +2812,49 @@ button:disabled {
 }
 
 @media (max-width: 660px) {
+  .auth-variant-split-case {
+    display: block;
+  }
+
+  .auth-variant-split-case .auth-side {
+    min-height: auto;
+    padding: 27px 22px 30px;
+  }
+
+  .auth-variant-split-case .auth-side-copy {
+    padding-top: 55px;
+  }
+
+  .auth-variant-split-case .auth-side-copy h2 {
+    max-width: 12ch;
+    font-size: 34px;
+  }
+
+  .auth-variant-split-case .auth-side-copy p {
+    max-width: 38ch;
+    font-size: 12px;
+  }
+
+  .auth-variant-split-case .auth-score {
+    margin-top: 30px;
+  }
+
+  .auth-variant-split-case .auth-side-footer {
+    display: none;
+  }
+
+  .auth-variant-split-case .auth-panel {
+    min-height: 0;
+    padding: 38px 22px 45px;
+    border-top: 1px solid #d8d4c8;
+    border-left: 0;
+  }
+
+  .auth-variant-split-case .auth-copy h1 {
+    max-width: 13ch;
+    font-size: 34px;
+  }
+
   .auth-panel {
     padding: 32px 23px 27px;
   }
