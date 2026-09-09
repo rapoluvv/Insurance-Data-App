@@ -137,7 +137,7 @@ After the command succeeds, have the agent sign out and sign in again at the dep
 This repository is configured as a GitHub Pages project site. It deploys from the `main` branch through [`.github/workflows/deploy-pages.yml`](./.github/workflows/deploy-pages.yml) and uses the URL:
 
 ```text
-https://rapoluvv.github.io/Insurance-Data-App/
+https://rapoluvv.github.io/InsuranceDataBook/
 ```
 
 Before the first deployment:
@@ -154,7 +154,7 @@ Before the first deployment:
 4. Push to `main` or run the **Deploy Databook to GitHub Pages** workflow manually.
 5. Add `rapoluvv.github.io` to Firebase Authentication → Settings → Authorized domains so Google sign-in works on the deployed site.
 
-Do not unpublish an existing `rapoluvv.github.io` user site first. A project site at `/Insurance-Data-App/` is separate; only replace the existing project deployment if it is already connected to this same repository.
+Do not unpublish an existing `rapoluvv.github.io` user site first. A project site at `/InsuranceDataBook/` is separate; only replace the existing project deployment if it is already connected to this same repository.
 
 ### 7. Run the connected app
 
