@@ -11,16 +11,14 @@ import {
 } from './lib/storage.js';
 import { hasFirebaseConfig } from './lib/firebase.js';
 import {
-  clearPhoneAuth,
   getGuestSession,
-  preparePhoneRecaptcha,
+  updateGuestDisplayName,
   signIn,
   signInAnonymouslyUser,
   signInWithGoogle,
-  requestPhoneCode,
-  confirmPhoneCode,
   signOutUser,
   subscribeToAuth,
+  updateUserDisplayName,
 } from './lib/auth.js';
 
 const ROLE_USERS = {
@@ -37,6 +35,39 @@ const ROLE_USERS = {
     initials: 'AM',
   },
 };
+
+const DEMO_PROFILE_KEY = 'casebook-demo-profile-names-v1';
+
+function getInitials(name = 'Member') {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0].toUpperCase())
+    .join('');
+}
+
+function getGreeting(date = new Date()) {
+  const hour = date.getHours();
+  if (hour >= 5 && hour < 12) return 'Good morning';
+  if (hour >= 12 && hour < 18) return 'Good afternoon';
+  return 'Good night';
+}
+
+function getDemoProfileName(role) {
+  try {
+    const stored = JSON.parse(window.localStorage.getItem(DEMO_PROFILE_KEY) || '{}');
+    return stored[role] || ROLE_USERS[role].name;
+  } catch (error) {
+    console.error('Unable to read the demo profile name.', error);
+    return ROLE_USERS[role].name;
+  }
+}
+
+function saveDemoProfileName(role, name) {
+  const stored = JSON.parse(window.localStorage.getItem(DEMO_PROFILE_KEY) || '{}');
+  window.localStorage.setItem(DEMO_PROFILE_KEY, JSON.stringify({ ...stored, [role]: name }));
+}
 
 const STEPS = [
   { id: 'applicant', label: 'Applicant', hint: 'Identity' },
@@ -259,7 +290,6 @@ function Icon({ name, size = 18 }) {
     clock: <><circle cx="12" cy="12" r="8.5" /><path d="M12 7v5l3.2 2" /></>,
     shield: <><path d="M12 3.5 19 6v5.3c0 4.3-2.5 7.8-7 9.2-4.5-1.4-7-4.9-7-9.2V6z" /><path d="m9 12 2 2 4-4" /></>,
     users: <><path d="M16 20v-1.8a3.7 3.7 0 0 0-3.7-3.7H7.7A3.7 3.7 0 0 0 4 18.2V20" /><circle cx="10" cy="7.5" r="3.3" /><path d="M16 4.5a3.3 3.3 0 0 1 0 6.4M20 20v-1.8a3.7 3.7 0 0 0-2.8-3.6" /></>,
-    phone: <><path d="M7.5 4.5 5.8 5.4a2 2 0 0 0-1 2.1c.8 5.8 5.4 10.4 11.2 11.2a2 2 0 0 0 2.1-1l.9-1.7-3.4-2.2-1.6 1.3a11.2 11.2 0 0 1-4.8-4.8l1.3-1.6z" /></>,
     download: <><path d="M12 3v12" /><path d="m7 10 5 5 5-5M4 20h16" /></>,
     upload: <><path d="M12 16V4" /><path d="m7 9 5-5 5 5M4 20h16" /></>,
     edit: <><path d="m4 16.5-.8 3.4 3.4-.8L18.8 7a2.4 2.4 0 0 0-3.4-3.4z" /><path d="m13.5 5.5 3 3" /></>,
@@ -298,82 +328,22 @@ function AuthLoading() {
   );
 }
 
-function SignInView({
-  error,
-  isSigningIn,
-  onConfirmPhoneCode,
-  onContinueGuest,
-  onGoogleSignIn,
-  onPreparePhoneRecaptcha,
-  onRequestPhoneCode,
-  onResetPhone,
-  onSignIn,
-}) {
+function SignInView({ error, isSigningIn, onContinueGuest, onGoogleSignIn, onSignIn }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [authMethod, setAuthMethod] = useState('password');
-  const [countryCode, setCountryCode] = useState('+91');
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [phoneCode, setPhoneCode] = useState('');
-  const [phoneStep, setPhoneStep] = useState('number');
-  const [providerError, setProviderError] = useState('');
-
-  useEffect(() => () => onResetPhone(), []);
-
-  useEffect(() => {
-    if (authMethod !== 'phone' || phoneStep !== 'number') return undefined;
-
-    let cancelled = false;
-    onPreparePhoneRecaptcha('phone-recaptcha').catch((authError) => {
-      if (!cancelled) {
-        setProviderError(authError.message || 'The security check could not load.');
-      }
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [authMethod, phoneStep]);
 
   function handleSubmit(event) {
     event.preventDefault();
     onSignIn(email, password);
   }
 
-  function handleMethodChange(method) {
-    setAuthMethod(method);
-    setProviderError('');
-    setPhoneStep('number');
-    setPhoneCode('');
-    onResetPhone();
-  }
-
   async function handleGoogleSignIn() {
-    setProviderError('');
     try {
       await onGoogleSignIn();
     } catch (authError) {
-      setProviderError(authError.message || 'Google sign-in could not be completed.');
+      // The parent stores the provider error in the shared auth state.
     }
   }
-
-  async function handlePhoneSubmit(event) {
-    event.preventDefault();
-    setProviderError('');
-    try {
-      if (phoneStep === 'number') {
-        const normalizedPhone = `${countryCode}${phoneNumber.replace(/\D/g, '')}`;
-        await onRequestPhoneCode(normalizedPhone);
-        setPhoneStep('code');
-      } else {
-        await onConfirmPhoneCode(phoneCode);
-      }
-    } catch (authError) {
-      setProviderError(authError.message || 'Phone sign-in could not be completed.');
-    }
-  }
-
-  const visibleError = providerError || error;
 
   return (
     <main className="auth-screen auth-variant-split-case">
@@ -410,55 +380,15 @@ function SignInView({
               <Icon name="arrow" size={16} />
             </button>
             <div className="auth-divider"><span>or use</span></div>
-            <div className="auth-method-toggle" role="tablist" aria-label="Choose sign-in method">
-              <button aria-selected={authMethod === 'password'} className={authMethod === 'password' ? 'is-active' : ''} onClick={() => handleMethodChange('password')} role="tab" type="button">Password</button>
-              <button aria-selected={authMethod === 'phone'} className={authMethod === 'phone' ? 'is-active' : ''} onClick={() => handleMethodChange('phone')} role="tab" type="button"><Icon name="phone" size={15} /> Phone</button>
-            </div>
-            {authMethod === 'password' ? (
-              <form className="auth-form" onSubmit={handleSubmit}>
+            <form className="auth-form" onSubmit={handleSubmit}>
             <Field label="Email address" name="auth-email" onChange={(_, value) => setEmail(value)} placeholder="you@example.com" required type="email" value={email} />
             <Field label="Password" name="auth-password" onChange={(_, value) => setPassword(value)} placeholder="Your password" required type="password" value={password} />
-            {visibleError && <div className="auth-error" role="alert"><Icon name="info" size={16} />{visibleError}</div>}
+            {error && <div className="auth-error" role="alert"><Icon name="info" size={16} />{error}</div>}
             <button className="button button-primary auth-submit" disabled={isSigningIn || !email || !password} type="submit">
               {isSigningIn ? 'Signing in…' : 'Sign in'}
               {!isSigningIn && <Icon name="arrow" size={16} />}
             </button>
-              </form>
-            ) : (
-              <form className="auth-form phone-auth-form" onSubmit={handlePhoneSubmit}>
-            {phoneStep === 'number' ? (
-              <>
-                <div className="phone-number-row">
-                  <div className="field phone-country-field">
-                    <label htmlFor="phone-country">Country code</label>
-                    <select id="phone-country" onChange={(event) => setCountryCode(event.target.value)} value={countryCode}>
-                      <option value="+91">India (+91)</option>
-                      <option value="+1">United States (+1)</option>
-                    </select>
-                  </div>
-                  <Field helper={countryCode === '+91' ? '10 digits after +91.' : '10 digits after +1.'} label="Phone number" name="auth-phone" onChange={(_, value) => setPhoneNumber(value)} placeholder={countryCode === '+91' ? '98765 43210' : '555 123 4567'} required type="tel" value={phoneNumber} />
-                </div>
-                <div className="phone-recaptcha-label">Security check</div>
-                <div className="phone-recaptcha" id="phone-recaptcha" />
-                {visibleError && <div className="auth-error" role="alert"><Icon name="info" size={16} />{visibleError}</div>}
-                <button className="button button-primary auth-submit" disabled={isSigningIn || !phoneNumber} type="submit">
-                  {isSigningIn ? 'Sending code…' : 'Send verification code'}
-                  {!isSigningIn && <Icon name="arrow" size={16} />}
-                </button>
-              </>
-            ) : (
-              <>
-                <Field helper={`Code sent to ${countryCode} ${phoneNumber}.`} label="Verification code" name="auth-phone-code" onChange={(_, value) => setPhoneCode(value)} placeholder="6-digit code" required value={phoneCode} />
-                {visibleError && <div className="auth-error" role="alert"><Icon name="info" size={16} />{visibleError}</div>}
-                <button className="button button-primary auth-submit" disabled={isSigningIn || !phoneCode} type="submit">
-                  {isSigningIn ? 'Verifying…' : 'Verify and continue'}
-                  {!isSigningIn && <Icon name="arrow" size={16} />}
-                </button>
-                <button className="text-button phone-change-button" onClick={() => { setPhoneStep('number'); setPhoneCode(''); setProviderError(''); onResetPhone(); }} type="button">Use a different number</button>
-              </>
-            )}
-              </form>
-            )}
+            </form>
           </div>
           <div className="auth-panel-footer">
             <div className="auth-guest-row">
@@ -466,11 +396,36 @@ function SignInView({
               <button className="text-button auth-guest-link" onClick={onContinueGuest} type="button">Continue as guest <Icon name="arrow" size={15} /></button>
             </div>
             <p className="auth-guest-note">Drafts stay in this browser. Submit to your agent through anonymous Firebase access.</p>
-            <p className="auth-note"><Icon name="shield" size={15} /> Google and phone users are customers unless an agent claim is assigned server-side.</p>
+            <p className="auth-note"><Icon name="shield" size={15} /> Google users are customers unless an agent claim is assigned server-side.</p>
           </div>
         </div>
       </section>
     </main>
+  );
+}
+
+function ProfileEditor({ error, isSaving, name, onCancel, onChange, onSave }) {
+  return (
+    <div className="profile-popover" role="dialog" aria-labelledby="profile-editor-title">
+      <span className="profile-kicker">Workspace profile</span>
+      <h2 id="profile-editor-title">How should we greet you?</h2>
+      <p>Choose the name shown in your workspace greeting.</p>
+      <form onSubmit={onSave}>
+        <label htmlFor="profile-display-name">Display name</label>
+        <input
+          autoFocus
+          id="profile-display-name"
+          onChange={(event) => onChange(event.target.value)}
+          placeholder="Your name"
+          value={name}
+        />
+        {error && <span className="profile-error" role="alert">{error}</span>}
+        <div className="profile-actions">
+          <button className="profile-cancel" onClick={onCancel} type="button">Cancel</button>
+          <button className="profile-save" disabled={isSaving || !name.trim()} type="submit">{isSaving ? 'Saving…' : 'Save name'}</button>
+        </div>
+      </form>
+    </div>
   );
 }
 
@@ -698,7 +653,7 @@ function ActivityChart({ records }) {
   );
 }
 
-function OverviewView({ role, user, records, isGuest, isAnonymousGuest, onExitGuest, onStartNew, onContinueDraft, onViewRecords, browserDraft }) {
+function OverviewView({ role, user, records, currentTime, isGuest, isAnonymousGuest, onExitGuest, onStartNew, onContinueDraft, onViewRecords, browserDraft }) {
   const submitted = records.filter((record) => record.status === 'submitted');
   const drafts = records.filter((record) => record.status === 'draft');
   const totalPremium = submitted.reduce((sum, record) => sum + Number(record.premium || 0), 0);
@@ -742,7 +697,7 @@ function OverviewView({ role, user, records, isGuest, isAnonymousGuest, onExitGu
         <div className="welcome-copy">
           <span className="welcome-mark" aria-hidden="true"><span /></span>
           <div>
-            <h2 id="welcome-title">Good morning, {user.name.split(' ')[0]}.</h2>
+            <h2 id="welcome-title">{getGreeting(currentTime)}, {user.name.split(' ')[0]}.</h2>
             <p>{isAgent ? 'The next careful entry is usually the one that keeps a case moving.' : 'Your information stays together from first detail to final review.'}</p>
           </div>
         </div>
@@ -1232,6 +1187,12 @@ function App() {
   const [isSaving, setIsSaving] = useState(false);
   const [loadError, setLoadError] = useState('');
   const [browserDraft, setBrowserDraft] = useState(() => readDraftSnapshot());
+  const [currentTime, setCurrentTime] = useState(() => new Date());
+  const [demoDisplayName, setDemoDisplayName] = useState(() => getDemoProfileName('agent'));
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profileName, setProfileName] = useState('');
+  const [profileError, setProfileError] = useState('');
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
 
   const isGuestMode = hasFirebaseConfig && ['guest', 'anonymous'].includes(authSession.user?.mode);
   const isAnonymousGuest = hasFirebaseConfig && authSession.user?.mode === 'anonymous';
@@ -1239,7 +1200,7 @@ function App() {
     ? isGuestMode
       ? authSession.user
       : { ...ROLE_USERS[role], ...authSession.user, roleLabel: role === 'agent' ? 'Agent' : 'Customer' }
-    : ROLE_USERS[role];
+    : { ...ROLE_USERS[role], name: demoDisplayName, initials: getInitials(demoDisplayName) };
   const scopedRecords = useMemo(
     () => records.filter((record) => user.role === 'agent' || record.ownerId === user.id),
     [records, user.id, user.role],
@@ -1278,13 +1239,60 @@ function App() {
   }, [authSession.user]);
 
   useEffect(() => {
+    if (!hasFirebaseConfig) setDemoDisplayName(getDemoProfileName(role));
+  }, [role]);
+
+  useEffect(() => {
+    if (profileOpen) {
+      setProfileName(user.name);
+      setProfileError('');
+    }
+  }, [profileOpen, user.name]);
+
+  useEffect(() => {
     if (!toast) return undefined;
     const timer = window.setTimeout(() => setToast(null), 4200);
     return () => window.clearTimeout(timer);
   }, [toast]);
 
+  useEffect(() => {
+    const timer = window.setInterval(() => setCurrentTime(new Date()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   function notify(message, tone = 'success') {
     setToast({ message, tone });
+  }
+
+  async function handleSaveProfile(event) {
+    event.preventDefault();
+    const nextName = profileName.trim();
+    if (!nextName) {
+      setProfileError('Enter a display name.');
+      return;
+    }
+
+    setIsSavingProfile(true);
+    setProfileError('');
+    try {
+      if (!hasFirebaseConfig) {
+        saveDemoProfileName(role, nextName);
+        setDemoDisplayName(nextName);
+      } else if (isGuestMode) {
+        const guest = updateGuestDisplayName(nextName);
+        setAuthSession((current) => ({ ...current, user: guest }));
+      } else {
+        const updatedUser = await updateUserDisplayName(nextName);
+        setAuthSession({ loading: false, user: updatedUser, error: null });
+        setRole(updatedUser.role);
+      }
+      setProfileOpen(false);
+      notify('Your workspace name was updated.');
+    } catch (error) {
+      setProfileError(error.message || 'The name could not be updated.');
+    } finally {
+      setIsSavingProfile(false);
+    }
   }
 
   async function handleSignIn(email, password) {
@@ -1310,32 +1318,6 @@ function App() {
     }
   }
 
-  async function handleRequestPhoneCode(phoneNumber) {
-    setIsSigningIn(true);
-    try {
-      await requestPhoneCode(phoneNumber, 'phone-recaptcha');
-    } finally {
-      setIsSigningIn(false);
-    }
-  }
-
-  async function handlePreparePhoneRecaptcha(containerId) {
-    await preparePhoneRecaptcha(containerId);
-  }
-
-  async function handleConfirmPhoneCode(code) {
-    setIsSigningIn(true);
-    try {
-      await confirmPhoneCode(code);
-    } finally {
-      setIsSigningIn(false);
-    }
-  }
-
-  function handleResetPhone() {
-    clearPhoneAuth();
-  }
-
   function handleContinueGuest() {
     const guest = getGuestSession();
     setRole('customer');
@@ -1358,6 +1340,7 @@ function App() {
     setRecords([]);
     setSelectedRecord(null);
     setBrowserDraft(null);
+    setProfileOpen(false);
     setView('overview');
   }
 
@@ -1365,6 +1348,7 @@ function App() {
     try {
       await signOutUser();
       setRecords([]);
+      setProfileOpen(false);
       setView('overview');
     } catch (error) {
       notify(error.message || 'Could not sign out.', 'error');
@@ -1571,6 +1555,7 @@ function App() {
   function handleRoleChange(nextRole) {
     if (hasFirebaseConfig) return;
     setRole(nextRole);
+    setProfileOpen(false);
     setSelectedRecord(null);
     setView('overview');
     setSearch('');
@@ -1582,7 +1567,7 @@ function App() {
   }
 
   if (hasFirebaseConfig && !authSession.user) {
-    return <SignInView error={authSession.error?.message} isSigningIn={isSigningIn} onConfirmPhoneCode={handleConfirmPhoneCode} onContinueGuest={handleContinueGuest} onGoogleSignIn={handleGoogleSignIn} onPreparePhoneRecaptcha={handlePreparePhoneRecaptcha} onRequestPhoneCode={handleRequestPhoneCode} onResetPhone={handleResetPhone} onSignIn={handleSignIn} />;
+    return <SignInView error={authSession.error?.message} isSigningIn={isSigningIn} onContinueGuest={handleContinueGuest} onGoogleSignIn={handleGoogleSignIn} onSignIn={handleSignIn} />;
   }
 
   return (
@@ -1607,13 +1592,21 @@ function App() {
         </nav>
         <div className="sidebar-bottom">
           <div className="security-note"><Icon name={isGuestMode ? 'info' : 'shield'} size={17} /><div><strong>{isGuestMode ? 'Guest mode' : 'Role-aware by design'}</strong><span>{isAnonymousGuest ? 'Submitted records sync securely.' : isGuestMode ? 'Records stay on this device.' : 'Private information stays in scope.'}</span></div></div>
-          <div className="user-card"><span className="avatar">{user.initials}</span><div><strong>{user.name}</strong><span>{user.roleLabel} workspace</span></div>{hasFirebaseConfig && <button aria-label={isGuestMode ? 'Exit guest mode' : 'Sign out'} className="user-more" onClick={isGuestMode ? handleExitGuest : handleSignOut} title={isGuestMode ? 'Exit guest mode' : 'Sign out'} type="button"><Icon name="logout" size={15} /></button>}</div>
+          <div className="user-card">
+            <span className="avatar">{user.initials}</span>
+            <div><strong>{user.name}</strong><span>{user.roleLabel} workspace</span></div>
+            <div className="user-actions">
+              <button aria-label="Edit profile name" className="user-more" onClick={() => setProfileOpen((current) => !current)} title="Edit profile name" type="button"><Icon name="edit" size={14} /></button>
+              {hasFirebaseConfig && <button aria-label={isGuestMode ? 'Exit guest mode' : 'Sign out'} className="user-more" onClick={isGuestMode ? handleExitGuest : handleSignOut} title={isGuestMode ? 'Exit guest mode' : 'Sign out'} type="button"><Icon name="logout" size={15} /></button>}
+            </div>
+          </div>
+          {profileOpen && <ProfileEditor error={profileError} isSaving={isSavingProfile} name={profileName} onCancel={() => setProfileOpen(false)} onChange={setProfileName} onSave={handleSaveProfile} />}
         </div>
       </aside>
 
       <main className="main-content">
         {loadError && <div className="load-error" role="alert"><Icon name="info" size={16} />{loadError}</div>}
-        {view === 'overview' && <OverviewView browserDraft={browserDraft} isAnonymousGuest={isAnonymousGuest} isGuest={isGuestMode} onContinueDraft={continueBrowserDraft} onExitGuest={handleExitGuest} onStartNew={openNewForm} onViewRecords={() => setView('records')} records={scopedRecords} role={role} user={user} />}
+        {view === 'overview' && <OverviewView browserDraft={browserDraft} currentTime={currentTime} isAnonymousGuest={isAnonymousGuest} isGuest={isGuestMode} onContinueDraft={continueBrowserDraft} onExitGuest={handleExitGuest} onStartNew={openNewForm} onViewRecords={() => setView('records')} records={scopedRecords} role={role} user={user} />}
         {view === 'records' && <RecordsView isAnonymousGuest={isAnonymousGuest} isGuest={isGuestMode} onDelete={handleDelete} onEdit={openEdit} onExport={() => { exportRecords(scopedRecords); notify('Export started.'); }} onImport={handleImport} onOpen={setSelectedRecord} onStartNew={openNewForm} records={scopedRecords} role={role} search={search} setSearch={setSearch} setStatusFilter={setStatusFilter} statusFilter={statusFilter} />}
         {view === 'form' && <FormView activeStep={activeStep} editingId={editingId} fieldErrors={fieldErrors} form={form} highestStep={highestStep} isAnonymousGuest={isAnonymousGuest} isGuest={isGuestMode} isSaving={isSaving} onAddRepeater={handleAddRepeater} onBack={() => setView('overview')} onChange={handleChange} onNext={handleNext} onRemoveRepeater={handleRemoveRepeater} onRepeaterChange={handleRepeaterChange} onSaveDraft={handleSaveDraft} onStepChange={handleStepChange} onSubmit={handleSubmit} role={role} user={user} />}
       </main>

@@ -57,20 +57,12 @@ In Firebase Console, open **Build → Authentication → Get started → Sign-in
 
 1. Enable **Email/Password**. This is used by registered agents and customers.
 2. Enable **Google**. This adds the `Continue with Google` button to the app.
-3. Enable **Phone**. This adds SMS verification through Firebase reCAPTCHA.
-4. Enable **Anonymous**. This is used only when a guest submits a form to an agent.
-5. Click **Save** after each provider.
+3. Enable **Anonymous**. This is used only when a guest submits a form to an agent.
+4. Click **Save** after each provider.
 
 Anonymous sign-in follows Firebase's [web anonymous authentication flow](https://firebase.google.com/docs/auth/web/anonymous-auth). A guest still receives a Firebase UID, but no recoverable account or password.
 
 Google sign-in uses Firebase's popup flow. Make sure your development and production domains are listed under **Authentication → Settings → Authorized domains**. Add `localhost` and `127.0.0.1` for local testing if they are not already present.
-
-Phone sign-in requires:
-
-- A phone number in international E.164 format, such as `+919876543210`.
-- The reCAPTCHA widget shown by the app before Firebase sends the SMS.
-- A real SMS-capable number for production testing. Firebase can throttle repeated requests, so use Firebase's fictional test phone numbers in the console while developing.
-- SMS quotas and possible billing limits according to your Firebase project plan. Never put SMS credentials or service keys in the React app.
 
 ### 4. Create the Firestore database
 
@@ -160,5 +152,5 @@ Customers can choose **Continue as guest** on the Firebase sign-in screen. Draft
 - Dynamic nominees, siblings, children, and previous-policy rows.
 - Submitted/draft record view with search, status filtering, drawer details, edit, delete, JSON export, and JSON import.
 - Responsive case-score layout with keyboard-visible focus states and reduced-motion support.
-- Email/password, Google popup, phone/SMS with reCAPTCHA, anonymous guest submission, and role-aware Firebase sessions.
+- Email/password, Google popup, anonymous guest submission, and role-aware Firebase sessions.
 - No AI summary integration; the old client-side API key surface is intentionally not carried over.

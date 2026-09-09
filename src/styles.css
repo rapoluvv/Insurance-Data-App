@@ -291,6 +291,7 @@ button:disabled {
 .sidebar-bottom {
   margin-top: auto;
   padding-bottom: 14px;
+  position: relative;
 }
 
 .security-note {
@@ -367,12 +368,122 @@ button:disabled {
 }
 
 .user-more {
-  margin-left: auto;
   padding: 5px;
   color: #8ea198;
   background: transparent;
   cursor: pointer;
   letter-spacing: 1px;
+}
+
+.user-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.profile-popover {
+  position: absolute;
+  right: 0;
+  bottom: 65px;
+  z-index: 10;
+  width: 238px;
+  padding: 17px;
+  border: 1px solid rgba(216, 232, 222, 0.22);
+  border-radius: 6px;
+  color: #edf4ee;
+  background: #213a32;
+  box-shadow: 0 18px 35px rgba(0, 0, 0, 0.24);
+}
+
+.profile-kicker {
+  display: block;
+  color: #e3a487;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.profile-popover h2 {
+  margin: 9px 0 0;
+  color: #f5f4ed;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 16px;
+  letter-spacing: -0.04em;
+}
+
+.profile-popover p {
+  margin: 6px 0 15px;
+  color: #a9beb2;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.profile-popover label {
+  display: block;
+  margin-bottom: 6px;
+  color: #c3d2c6;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.profile-popover input {
+  display: block;
+  width: 100%;
+  height: 36px;
+  padding: 0 9px;
+  border: 1px solid #557067;
+  border-radius: 3px;
+  color: #f5f4ed;
+  outline: 0;
+  background: #182b25;
+  font-size: 11px;
+}
+
+.profile-popover input:focus {
+  border-color: #bcd3c2;
+  box-shadow: 0 0 0 3px rgba(188, 211, 194, 0.12);
+}
+
+.profile-error {
+  display: block;
+  margin-top: 6px;
+  color: #f0ae92;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.profile-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 7px;
+  margin-top: 13px;
+}
+
+.profile-cancel,
+.profile-save {
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.profile-cancel {
+  color: #b8c9bd;
+  background: transparent;
+}
+
+.profile-save {
+  color: var(--ink);
+  background: #d7e7d9;
+}
+
+.profile-save:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .main-content {
@@ -776,96 +887,6 @@ button:disabled {
   font-family: Arial, sans-serif;
   font-size: 17px;
   font-weight: 700;
-}
-
-.auth-method-toggle {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 3px;
-  margin-top: -2px;
-  padding: 3px;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  background: #fbfcf9;
-}
-
-.auth-method-toggle button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-height: 34px;
-  border-radius: 2px;
-  color: var(--muted);
-  background: transparent;
-  cursor: pointer;
-  font-size: 10px;
-  font-weight: 600;
-}
-
-.auth-method-toggle button:hover {
-  color: var(--moss-dark);
-}
-
-.auth-method-toggle button.is-active {
-  color: var(--ink);
-  background: var(--white);
-  box-shadow: var(--shadow-small);
-}
-
-.phone-auth-form {
-  margin-top: 18px;
-}
-
-.phone-number-row {
-  display: grid;
-  grid-template-columns: minmax(142px, 0.42fr) minmax(0, 1fr);
-  align-items: start;
-  gap: 13px;
-}
-
-.phone-country-field select {
-  display: block;
-  width: 100%;
-  height: 42px;
-  padding: 0 9px;
-  border: 1px solid var(--line-strong);
-  border-radius: 3px;
-  color: var(--ink);
-  outline: 0;
-  background: var(--white);
-  font-size: 11px;
-}
-
-.phone-country-field select:focus {
-  border-color: var(--moss);
-  box-shadow: 0 0 0 3px rgba(46, 107, 91, 0.1);
-}
-
-.phone-recaptcha {
-  width: 304px;
-  max-width: 100%;
-  margin-inline: auto;
-  min-height: 78px;
-  overflow: hidden;
-  border: 0;
-  background: transparent;
-}
-
-.phone-recaptcha-label {
-  width: 304px;
-  max-width: 100%;
-  margin: -2px auto -7px;
-  color: var(--muted);
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 9px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.phone-change-button {
-  align-self: flex-start;
-  margin-top: -4px;
 }
 
 .auth-divider {

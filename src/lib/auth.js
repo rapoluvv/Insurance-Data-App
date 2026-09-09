@@ -1,19 +1,16 @@
 import {
   GoogleAuthProvider,
-  RecaptchaVerifier,
   getIdTokenResult,
   onAuthStateChanged,
   signInAnonymously,
   signInWithEmailAndPassword,
-  signInWithPhoneNumber,
   signInWithPopup,
   signOut,
+  updateProfile,
 } from 'firebase/auth';
 import { auth, authPersistenceReady, hasFirebaseConfig } from './firebase.js';
 
 const GUEST_SESSION_KEY = 'casebook-guest-session-v1';
-let phoneConfirmation = null;
-let phoneVerifier = null;
 
 function makeInitials(name = 'Member') {
   return name
@@ -34,11 +31,13 @@ function createGuestId() {
 export function getGuestSession() {
   const stored = window.localStorage.getItem(GUEST_SESSION_KEY);
   let guestId = '';
+  let storedName = 'Guest';
 
   if (stored) {
     try {
       const parsed = JSON.parse(stored);
       guestId = typeof parsed?.id === 'string' ? parsed.id : '';
+      storedName = typeof parsed?.name === 'string' && parsed.name.trim() ? parsed.name : storedName;
     } catch (error) {
       console.error('Unable to read the guest session.', error);
     }
@@ -46,14 +45,25 @@ export function getGuestSession() {
 
   const session = {
     id: guestId || createGuestId(),
-    initials: 'G',
+    initials: makeInitials(storedName),
     mode: 'guest',
-    name: 'Guest',
+    name: storedName,
     role: 'customer',
     roleLabel: 'Guest mode',
   };
   window.localStorage.setItem(GUEST_SESSION_KEY, JSON.stringify(session));
   return session;
+}
+
+export function updateGuestDisplayName(name) {
+  const session = getGuestSession();
+  const updated = {
+    ...session,
+    name,
+    initials: makeInitials(name),
+  };
+  window.localStorage.setItem(GUEST_SESSION_KEY, JSON.stringify(updated));
+  return updated;
 }
 
 async function toAuthSession(firebaseUser) {
@@ -120,56 +130,13 @@ export async function signInWithGoogle() {
   return toAuthSession(credential.user);
 }
 
-export async function preparePhoneRecaptcha(recaptchaContainerId) {
-  if (!hasFirebaseConfig) {
-    throw new Error('Firebase authentication is not configured.');
+export async function updateUserDisplayName(name) {
+  if (!hasFirebaseConfig || !auth.currentUser) {
+    throw new Error('You must be signed in to update your profile.');
   }
 
-  await authPersistenceReady;
-  if (!phoneVerifier) {
-    phoneVerifier = new RecaptchaVerifier(auth, recaptchaContainerId, {
-      size: 'normal',
-      callback: () => {},
-      'expired-callback': () => {
-        phoneConfirmation = null;
-      },
-    });
-  }
-  return phoneVerifier.render();
-}
-
-export async function requestPhoneCode(phoneNumber, recaptchaContainerId) {
-  if (!hasFirebaseConfig) {
-    throw new Error('Firebase authentication is not configured.');
-  }
-  if (!/^\+[1-9]\d{7,14}$/.test(phoneNumber.trim())) {
-    throw new Error('Enter a phone number in international format, for example +919876543210.');
-  }
-
-  await preparePhoneRecaptcha(recaptchaContainerId);
-  phoneConfirmation = await signInWithPhoneNumber(auth, phoneNumber.trim(), phoneVerifier);
-}
-
-export async function confirmPhoneCode(code) {
-  if (!phoneConfirmation) {
-    throw new Error('Request a verification code first.');
-  }
-  if (!/^\d{6}$/.test(code.trim())) {
-    throw new Error('Enter the 6-digit verification code.');
-  }
-
-  const credential = await phoneConfirmation.confirm(code.trim());
-  const session = await toAuthSession(credential.user);
-  clearPhoneAuth();
-  return session;
-}
-
-export function clearPhoneAuth() {
-  phoneConfirmation = null;
-  if (phoneVerifier) {
-    phoneVerifier.clear();
-    phoneVerifier = null;
-  }
+  await updateProfile(auth.currentUser, { displayName: name });
+  return toAuthSession(auth.currentUser);
 }
 
 export async function signOutUser() {
