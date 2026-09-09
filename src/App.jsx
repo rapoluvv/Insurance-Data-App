@@ -11,9 +11,14 @@ import {
 } from './lib/storage.js';
 import { hasFirebaseConfig } from './lib/firebase.js';
 import {
+  clearPhoneAuth,
   getGuestSession,
+  preparePhoneRecaptcha,
   signIn,
   signInAnonymouslyUser,
+  signInWithGoogle,
+  requestPhoneCode,
+  confirmPhoneCode,
   signOutUser,
   subscribeToAuth,
 } from './lib/auth.js';
@@ -254,6 +259,7 @@ function Icon({ name, size = 18 }) {
     clock: <><circle cx="12" cy="12" r="8.5" /><path d="M12 7v5l3.2 2" /></>,
     shield: <><path d="M12 3.5 19 6v5.3c0 4.3-2.5 7.8-7 9.2-4.5-1.4-7-4.9-7-9.2V6z" /><path d="m9 12 2 2 4-4" /></>,
     users: <><path d="M16 20v-1.8a3.7 3.7 0 0 0-3.7-3.7H7.7A3.7 3.7 0 0 0 4 18.2V20" /><circle cx="10" cy="7.5" r="3.3" /><path d="M16 4.5a3.3 3.3 0 0 1 0 6.4M20 20v-1.8a3.7 3.7 0 0 0-2.8-3.6" /></>,
+    phone: <><path d="M7.5 4.5 5.8 5.4a2 2 0 0 0-1 2.1c.8 5.8 5.4 10.4 11.2 11.2a2 2 0 0 0 2.1-1l.9-1.7-3.4-2.2-1.6 1.3a11.2 11.2 0 0 1-4.8-4.8l1.3-1.6z" /></>,
     download: <><path d="M12 3v12" /><path d="m7 10 5 5 5-5M4 20h16" /></>,
     upload: <><path d="M12 16V4" /><path d="m7 9 5-5 5 5M4 20h16" /></>,
     edit: <><path d="m4 16.5-.8 3.4 3.4-.8L18.8 7a2.4 2.4 0 0 0-3.4-3.4z" /><path d="m13.5 5.5 3 3" /></>,
@@ -292,14 +298,82 @@ function AuthLoading() {
   );
 }
 
-function SignInView({ error, isSigningIn, onContinueGuest, onSignIn }) {
+function SignInView({
+  error,
+  isSigningIn,
+  onConfirmPhoneCode,
+  onContinueGuest,
+  onGoogleSignIn,
+  onPreparePhoneRecaptcha,
+  onRequestPhoneCode,
+  onResetPhone,
+  onSignIn,
+}) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [authMethod, setAuthMethod] = useState('password');
+  const [countryCode, setCountryCode] = useState('+91');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [phoneCode, setPhoneCode] = useState('');
+  const [phoneStep, setPhoneStep] = useState('number');
+  const [providerError, setProviderError] = useState('');
+
+  useEffect(() => () => onResetPhone(), []);
+
+  useEffect(() => {
+    if (authMethod !== 'phone' || phoneStep !== 'number') return undefined;
+
+    let cancelled = false;
+    onPreparePhoneRecaptcha('phone-recaptcha').catch((authError) => {
+      if (!cancelled) {
+        setProviderError(authError.message || 'The security check could not load.');
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authMethod, phoneStep]);
 
   function handleSubmit(event) {
     event.preventDefault();
     onSignIn(email, password);
   }
+
+  function handleMethodChange(method) {
+    setAuthMethod(method);
+    setProviderError('');
+    setPhoneStep('number');
+    setPhoneCode('');
+    onResetPhone();
+  }
+
+  async function handleGoogleSignIn() {
+    setProviderError('');
+    try {
+      await onGoogleSignIn();
+    } catch (authError) {
+      setProviderError(authError.message || 'Google sign-in could not be completed.');
+    }
+  }
+
+  async function handlePhoneSubmit(event) {
+    event.preventDefault();
+    setProviderError('');
+    try {
+      if (phoneStep === 'number') {
+        const normalizedPhone = `${countryCode}${phoneNumber.replace(/\D/g, '')}`;
+        await onRequestPhoneCode(normalizedPhone);
+        setPhoneStep('code');
+      } else {
+        await onConfirmPhoneCode(phoneCode);
+      }
+    } catch (authError) {
+      setProviderError(authError.message || 'Phone sign-in could not be completed.');
+    }
+  }
+
+  const visibleError = providerError || error;
 
   return (
     <main className="auth-screen auth-variant-split-case">
@@ -321,31 +395,80 @@ function SignInView({ error, isSigningIn, onContinueGuest, onSignIn }) {
         <p className="auth-side-footer">The case score keeps every important detail in view.</p>
       </aside>
       <section className="auth-panel" aria-labelledby="sign-in-title">
-        <div className="auth-brand">
-          <span className="auth-mark" aria-hidden="true"><span /></span>
-          <div><strong>casebook</strong><small>insurance data</small></div>
+        <div className="auth-panel-content">
+          <div className="auth-panel-intro">
+            <div className="auth-copy">
+              <span className="auth-kicker">Secure workspace</span>
+              <h1 id="sign-in-title">Sign in to your casebook.</h1>
+              <p>Use the account created for your role. Customer records stay private; agents see the full submission queue.</p>
+            </div>
+          </div>
+          <div className="auth-panel-methods">
+            <button className="button button-secondary auth-google-button" disabled={isSigningIn} onClick={handleGoogleSignIn} type="button">
+              <span className="google-mark" aria-hidden="true">G</span>
+              Continue with Google
+              <Icon name="arrow" size={16} />
+            </button>
+            <div className="auth-divider"><span>or use</span></div>
+            <div className="auth-method-toggle" role="tablist" aria-label="Choose sign-in method">
+              <button aria-selected={authMethod === 'password'} className={authMethod === 'password' ? 'is-active' : ''} onClick={() => handleMethodChange('password')} role="tab" type="button">Password</button>
+              <button aria-selected={authMethod === 'phone'} className={authMethod === 'phone' ? 'is-active' : ''} onClick={() => handleMethodChange('phone')} role="tab" type="button"><Icon name="phone" size={15} /> Phone</button>
+            </div>
+            {authMethod === 'password' ? (
+              <form className="auth-form" onSubmit={handleSubmit}>
+            <Field label="Email address" name="auth-email" onChange={(_, value) => setEmail(value)} placeholder="you@example.com" required type="email" value={email} />
+            <Field label="Password" name="auth-password" onChange={(_, value) => setPassword(value)} placeholder="Your password" required type="password" value={password} />
+            {visibleError && <div className="auth-error" role="alert"><Icon name="info" size={16} />{visibleError}</div>}
+            <button className="button button-primary auth-submit" disabled={isSigningIn || !email || !password} type="submit">
+              {isSigningIn ? 'Signing in…' : 'Sign in'}
+              {!isSigningIn && <Icon name="arrow" size={16} />}
+            </button>
+              </form>
+            ) : (
+              <form className="auth-form phone-auth-form" onSubmit={handlePhoneSubmit}>
+            {phoneStep === 'number' ? (
+              <>
+                <div className="phone-number-row">
+                  <div className="field phone-country-field">
+                    <label htmlFor="phone-country">Country code</label>
+                    <select id="phone-country" onChange={(event) => setCountryCode(event.target.value)} value={countryCode}>
+                      <option value="+91">India (+91)</option>
+                      <option value="+1">United States (+1)</option>
+                    </select>
+                  </div>
+                  <Field helper={countryCode === '+91' ? '10 digits after +91.' : '10 digits after +1.'} label="Phone number" name="auth-phone" onChange={(_, value) => setPhoneNumber(value)} placeholder={countryCode === '+91' ? '98765 43210' : '555 123 4567'} required type="tel" value={phoneNumber} />
+                </div>
+                <div className="phone-recaptcha-label">Security check</div>
+                <div className="phone-recaptcha" id="phone-recaptcha" />
+                {visibleError && <div className="auth-error" role="alert"><Icon name="info" size={16} />{visibleError}</div>}
+                <button className="button button-primary auth-submit" disabled={isSigningIn || !phoneNumber} type="submit">
+                  {isSigningIn ? 'Sending code…' : 'Send verification code'}
+                  {!isSigningIn && <Icon name="arrow" size={16} />}
+                </button>
+              </>
+            ) : (
+              <>
+                <Field helper={`Code sent to ${countryCode} ${phoneNumber}.`} label="Verification code" name="auth-phone-code" onChange={(_, value) => setPhoneCode(value)} placeholder="6-digit code" required value={phoneCode} />
+                {visibleError && <div className="auth-error" role="alert"><Icon name="info" size={16} />{visibleError}</div>}
+                <button className="button button-primary auth-submit" disabled={isSigningIn || !phoneCode} type="submit">
+                  {isSigningIn ? 'Verifying…' : 'Verify and continue'}
+                  {!isSigningIn && <Icon name="arrow" size={16} />}
+                </button>
+                <button className="text-button phone-change-button" onClick={() => { setPhoneStep('number'); setPhoneCode(''); setProviderError(''); onResetPhone(); }} type="button">Use a different number</button>
+              </>
+            )}
+              </form>
+            )}
+          </div>
+          <div className="auth-panel-footer">
+            <div className="auth-guest-row">
+              <span>Prefer not to sign in?</span>
+              <button className="text-button auth-guest-link" onClick={onContinueGuest} type="button">Continue as guest <Icon name="arrow" size={15} /></button>
+            </div>
+            <p className="auth-guest-note">Drafts stay in this browser. Submit to your agent through anonymous Firebase access.</p>
+            <p className="auth-note"><Icon name="shield" size={15} /> Google and phone users are customers unless an agent claim is assigned server-side.</p>
+          </div>
         </div>
-        <div className="auth-copy">
-          <span className="auth-kicker">Secure workspace</span>
-          <h1 id="sign-in-title">Sign in to your casebook.</h1>
-          <p>Use the account created for your role. Customer records stay private; agents see the full submission queue.</p>
-        </div>
-        <form className="auth-form" onSubmit={handleSubmit}>
-          <Field label="Email address" name="auth-email" onChange={(_, value) => setEmail(value)} placeholder="you@example.com" required type="email" value={email} />
-          <Field label="Password" name="auth-password" onChange={(_, value) => setPassword(value)} placeholder="Your password" required type="password" value={password} />
-          {error && <div className="auth-error" role="alert"><Icon name="info" size={16} />{error}</div>}
-          <button className="button button-primary auth-submit" disabled={isSigningIn || !email || !password} type="submit">
-            {isSigningIn ? 'Signing in…' : 'Sign in'}
-            {!isSigningIn && <Icon name="arrow" size={16} />}
-          </button>
-        </form>
-        <div className="auth-divider"><span>or</span></div>
-        <button className="button button-secondary auth-guest-button" onClick={onContinueGuest} type="button">
-          Continue as guest
-          <Icon name="arrow" size={16} />
-        </button>
-        <p className="auth-guest-note">No account needed. Drafts stay in this browser. When you submit, a temporary anonymous Firebase account securely sends the record to your agent.</p>
-        <p className="auth-note"><Icon name="shield" size={15} /> Agent access is assigned with a server-side Firebase claim.</p>
       </section>
     </main>
   );
@@ -1175,6 +1298,44 @@ function App() {
     }
   }
 
+  async function handleGoogleSignIn() {
+    setIsSigningIn(true);
+    try {
+      await signInWithGoogle();
+    } catch (error) {
+      setAuthSession((current) => ({ ...current, error }));
+      throw error;
+    } finally {
+      setIsSigningIn(false);
+    }
+  }
+
+  async function handleRequestPhoneCode(phoneNumber) {
+    setIsSigningIn(true);
+    try {
+      await requestPhoneCode(phoneNumber, 'phone-recaptcha');
+    } finally {
+      setIsSigningIn(false);
+    }
+  }
+
+  async function handlePreparePhoneRecaptcha(containerId) {
+    await preparePhoneRecaptcha(containerId);
+  }
+
+  async function handleConfirmPhoneCode(code) {
+    setIsSigningIn(true);
+    try {
+      await confirmPhoneCode(code);
+    } finally {
+      setIsSigningIn(false);
+    }
+  }
+
+  function handleResetPhone() {
+    clearPhoneAuth();
+  }
+
   function handleContinueGuest() {
     const guest = getGuestSession();
     setRole('customer');
@@ -1421,7 +1582,7 @@ function App() {
   }
 
   if (hasFirebaseConfig && !authSession.user) {
-    return <SignInView error={authSession.error?.message} isSigningIn={isSigningIn} onContinueGuest={handleContinueGuest} onSignIn={handleSignIn} />;
+    return <SignInView error={authSession.error?.message} isSigningIn={isSigningIn} onConfirmPhoneCode={handleConfirmPhoneCode} onContinueGuest={handleContinueGuest} onGoogleSignIn={handleGoogleSignIn} onPreparePhoneRecaptcha={handlePreparePhoneRecaptcha} onRequestPhoneCode={handleRequestPhoneCode} onResetPhone={handleResetPhone} onSignIn={handleSignIn} />;
   }
 
   return (

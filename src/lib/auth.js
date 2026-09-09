@@ -1,13 +1,19 @@
 import {
+  GoogleAuthProvider,
+  RecaptchaVerifier,
   getIdTokenResult,
   onAuthStateChanged,
   signInAnonymously,
   signInWithEmailAndPassword,
+  signInWithPhoneNumber,
+  signInWithPopup,
   signOut,
 } from 'firebase/auth';
 import { auth, authPersistenceReady, hasFirebaseConfig } from './firebase.js';
 
 const GUEST_SESSION_KEY = 'casebook-guest-session-v1';
+let phoneConfirmation = null;
+let phoneVerifier = null;
 
 function makeInitials(name = 'Member') {
   return name
@@ -99,6 +105,71 @@ export async function signIn(email, password) {
   }
   await authPersistenceReady;
   return signInWithEmailAndPassword(auth, email, password);
+}
+
+export async function signInWithGoogle() {
+  if (!hasFirebaseConfig) {
+    throw new Error('Firebase authentication is not configured.');
+  }
+
+  await authPersistenceReady;
+  const provider = new GoogleAuthProvider();
+  provider.addScope('profile');
+  provider.addScope('email');
+  const credential = await signInWithPopup(auth, provider);
+  return toAuthSession(credential.user);
+}
+
+export async function preparePhoneRecaptcha(recaptchaContainerId) {
+  if (!hasFirebaseConfig) {
+    throw new Error('Firebase authentication is not configured.');
+  }
+
+  await authPersistenceReady;
+  if (!phoneVerifier) {
+    phoneVerifier = new RecaptchaVerifier(auth, recaptchaContainerId, {
+      size: 'normal',
+      callback: () => {},
+      'expired-callback': () => {
+        phoneConfirmation = null;
+      },
+    });
+  }
+  return phoneVerifier.render();
+}
+
+export async function requestPhoneCode(phoneNumber, recaptchaContainerId) {
+  if (!hasFirebaseConfig) {
+    throw new Error('Firebase authentication is not configured.');
+  }
+  if (!/^\+[1-9]\d{7,14}$/.test(phoneNumber.trim())) {
+    throw new Error('Enter a phone number in international format, for example +919876543210.');
+  }
+
+  await preparePhoneRecaptcha(recaptchaContainerId);
+  phoneConfirmation = await signInWithPhoneNumber(auth, phoneNumber.trim(), phoneVerifier);
+}
+
+export async function confirmPhoneCode(code) {
+  if (!phoneConfirmation) {
+    throw new Error('Request a verification code first.');
+  }
+  if (!/^\d{6}$/.test(code.trim())) {
+    throw new Error('Enter the 6-digit verification code.');
+  }
+
+  const credential = await phoneConfirmation.confirm(code.trim());
+  const session = await toAuthSession(credential.user);
+  clearPhoneAuth();
+  return session;
+}
+
+export function clearPhoneAuth() {
+  phoneConfirmation = null;
+  if (phoneVerifier) {
+    phoneVerifier.clear();
+    phoneVerifier = null;
+  }
 }
 
 export async function signOutUser() {

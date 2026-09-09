@@ -13,14 +13,141 @@ The app runs in an explicit demo mode until Firebase environment values are supp
 
 ## Firebase setup
 
-1. Copy `.env.example` to `.env.local`.
-2. Add the web app values from your Firebase project.
-3. Enable Firebase Authentication with email/password.
-4. Enable Firebase Authentication with **Anonymous** sign-in.
-5. Deploy `firestore.rules`.
-6. Give agent accounts the server-side custom claim `{ "agent": true }`. Accounts without that claim are treated as customers.
+You need a Google account for the [Firebase Console](https://console.firebase.google.com/). The app needs three Firebase services:
 
-Anonymous sign-in is the Firebase provider described in the [Firebase web documentation](https://firebase.google.com/docs/auth/web/anonymous-auth); it must be enabled before guest submissions can be uploaded.
+- **Authentication** for agent/customer accounts and guest submissions.
+- **Cloud Firestore** for insurance records.
+- A registered **Web app** to provide the client configuration.
+
+### 1. Create the Firebase project
+
+1. Open the [Firebase Console](https://console.firebase.google.com/) and select **Add project**.
+2. Name it something like `casebook-insurance`.
+3. Google Analytics is optional for this app; you can skip it during setup.
+
+### 2. Register the web app
+
+1. From the project overview, click the **Web** icon (`</>`).
+2. Use `casebook-web` as the app nickname.
+3. Do not enable Firebase Hosting yet unless you want to deploy from Firebase.
+4. Firebase will show a `firebaseConfig` object. Keep that page open; you will copy its six values next.
+
+In the `Insurance Data App` folder, create `.env.local` from the included template:
+
+```powershell
+Copy-Item .env.example .env.local
+```
+
+Open `.env.local` and paste the matching values from `firebaseConfig`:
+
+```env
+VITE_FIREBASE_API_KEY=your_apiKey
+VITE_FIREBASE_AUTH_DOMAIN=your_authDomain
+VITE_FIREBASE_PROJECT_ID=your_projectId
+VITE_FIREBASE_STORAGE_BUCKET=your_storageBucket
+VITE_FIREBASE_MESSAGING_SENDER_ID=your_messagingSenderId
+VITE_FIREBASE_APP_ID=your_appId
+```
+
+The `.env.local` file is already ignored by Git. Never commit a Firebase service-account JSON file or private key. The web config is intended for browser use; Firestore Rules and Authentication enforce access.
+
+### 3. Enable the sign-in providers
+
+In Firebase Console, open **Build → Authentication → Get started → Sign-in method**:
+
+1. Enable **Email/Password**. This is used by registered agents and customers.
+2. Enable **Google**. This adds the `Continue with Google` button to the app.
+3. Enable **Phone**. This adds SMS verification through Firebase reCAPTCHA.
+4. Enable **Anonymous**. This is used only when a guest submits a form to an agent.
+5. Click **Save** after each provider.
+
+Anonymous sign-in follows Firebase's [web anonymous authentication flow](https://firebase.google.com/docs/auth/web/anonymous-auth). A guest still receives a Firebase UID, but no recoverable account or password.
+
+Google sign-in uses Firebase's popup flow. Make sure your development and production domains are listed under **Authentication → Settings → Authorized domains**. Add `localhost` and `127.0.0.1` for local testing if they are not already present.
+
+Phone sign-in requires:
+
+- A phone number in international E.164 format, such as `+919876543210`.
+- The reCAPTCHA widget shown by the app before Firebase sends the SMS.
+- A real SMS-capable number for production testing. Firebase can throttle repeated requests, so use Firebase's fictional test phone numbers in the console while developing.
+- SMS quotas and possible billing limits according to your Firebase project plan. Never put SMS credentials or service keys in the React app.
+
+### 4. Create the Firestore database
+
+1. Open **Build → Firestore Database → Create database**.
+2. Choose **Production mode**.
+3. Choose a region close to your users. The region cannot be changed later.
+4. After the database is created, open its **Rules** tab.
+5. Replace the rules with the contents of [`firestore.rules`](./firestore.rules), then click **Publish**.
+
+The rules allow:
+
+- Agent accounts with the `agent: true` custom claim to review all submissions.
+- Registered customers to read and write only documents whose `ownerId` is their Firebase UID.
+- Anonymous guest submitters to write and later read only their own submitted documents.
+
+### 5. Create test users
+
+In **Authentication → Users**, click **Add user** and create at least:
+
+- One agent account, for example `agent@example.com`.
+- One customer account, for example `customer@example.com`.
+
+Use test passwords during development. Do not put passwords in this repository or in `.env.local`.
+
+### 6. Give the agent account its role
+
+Firebase does not provide a normal browser-console field for custom claims. The agent account needs this server-side claim:
+
+```json
+{ "agent": true }
+```
+
+The project includes a one-time Admin SDK helper:
+
+1. In Firebase Console, open **Project settings → Service accounts**.
+2. Click **Generate new private key** and download the JSON file somewhere outside the repository. Do not rename it into the project folder or commit it.
+3. In PowerShell, point the Admin SDK at that file:
+
+   ```powershell
+   $env:GOOGLE_APPLICATION_CREDENTIALS="C:\secure\casebook-firebase-adminsdk.json"
+   ```
+
+4. Run the helper with the agent's email:
+
+   ```powershell
+   npm install
+   npm run set-agent-role -- agent@example.com
+   ```
+
+The helper preserves any existing custom claims and adds `agent: true`. The agent must sign out and sign in again before the app sees the new role. The service-account JSON is ignored by Git and must never be used in the browser.
+
+### Assigning agents after deployment
+
+You do **not** run the helper on Firebase Hosting or expose it through the deployed React app. Run it from a trusted admin computer after deployment; it updates the Firebase project directly, so the deployed app sees the role on the agent's next sign-in.
+
+For a new agent:
+
+```powershell
+Set-Location "C:\path\to\Insurance Data App"
+$env:GOOGLE_APPLICATION_CREDENTIALS="C:\secure\casebook-firebase-adminsdk.json"
+npm install
+npm run set-agent-role -- agent@example.com
+Remove-Item Env:GOOGLE_APPLICATION_CREDENTIALS
+```
+
+After the command succeeds, have the agent sign out and sign in again at the deployed site. Repeat the command for each future agent. Keep the service-account JSON in a secure password manager or secret store; never upload it with the website, commit it, or paste it into chat.
+
+### 7. Run the connected app
+
+Stop any running Vite process, then restart it so Vite reads `.env.local`:
+
+```powershell
+Set-Location "C:\path\to\Insurance Data App"
+npm run dev
+```
+
+Open the URL Vite prints. With Firebase configured, the app starts on the login page. **Continue as guest** creates local drafts; submitting a guest form signs in anonymously and stores the submitted record in Firestore for the agent.
 
 The client never lets a Firebase-authenticated user choose their role. Agents load the full `insuranceSubmissions` collection; customers query only records whose `ownerId` matches their Firebase UID. Firestore rules enforce the same boundary.
 
@@ -33,4 +160,5 @@ Customers can choose **Continue as guest** on the Firebase sign-in screen. Draft
 - Dynamic nominees, siblings, children, and previous-policy rows.
 - Submitted/draft record view with search, status filtering, drawer details, edit, delete, JSON export, and JSON import.
 - Responsive case-score layout with keyboard-visible focus states and reduced-motion support.
+- Email/password, Google popup, phone/SMS with reCAPTCHA, anonymous guest submission, and role-aware Firebase sessions.
 - No AI summary integration; the old client-side API key surface is intentionally not carried over.

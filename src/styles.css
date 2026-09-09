@@ -586,19 +586,57 @@ button:disabled {
   border-top: 0;
   background: #fbf5e9;
   box-shadow: none;
+  align-items: center;
 }
 
-.auth-variant-split-case .auth-panel .auth-brand {
-  display: none;
-}
-
-.auth-variant-split-case .auth-copy,
-.auth-variant-split-case .auth-form,
-.auth-variant-split-case .auth-divider,
-.auth-variant-split-case .auth-guest-button,
-.auth-variant-split-case .auth-guest-note,
-.auth-variant-split-case .auth-note {
+.auth-variant-split-case .auth-panel-content {
   width: min(100%, 470px);
+}
+
+.auth-panel-methods {
+  margin-top: 30px;
+  padding-top: 23px;
+  border-top: 1px solid #d8d4c8;
+}
+
+.auth-panel-methods .auth-google-button {
+  margin-top: 0;
+}
+
+.auth-panel-footer {
+  margin-top: 27px;
+  padding-top: 17px;
+  border-top: 1px solid #d8d4c8;
+}
+
+.auth-guest-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+}
+
+.auth-guest-row > span {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.auth-guest-link {
+  flex: 0 0 auto;
+  color: var(--moss-dark);
+  font-size: 10px;
+}
+
+.auth-panel-footer .auth-guest-note {
+  margin: 8px 0 0;
+  color: var(--muted);
+  text-align: left;
+}
+
+.auth-panel-footer .auth-note {
+  margin-top: 15px;
+  padding-top: 0;
+  border-top: 0;
 }
 
 .auth-variant-split-case .auth-copy h1 {
@@ -718,6 +756,118 @@ button:disabled {
   margin-top: 3px;
 }
 
+.auth-google-button {
+  width: 100%;
+  margin-top: 31px;
+  border-color: var(--line-strong);
+}
+
+.auth-google-button:hover:not(:disabled) {
+  border-color: var(--moss);
+  color: var(--moss-dark);
+}
+
+.google-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 19px;
+  height: 19px;
+  color: #4285f4;
+  font-family: Arial, sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.auth-method-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px;
+  margin-top: -2px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #fbfcf9;
+}
+
+.auth-method-toggle button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  border-radius: 2px;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.auth-method-toggle button:hover {
+  color: var(--moss-dark);
+}
+
+.auth-method-toggle button.is-active {
+  color: var(--ink);
+  background: var(--white);
+  box-shadow: var(--shadow-small);
+}
+
+.phone-auth-form {
+  margin-top: 18px;
+}
+
+.phone-number-row {
+  display: grid;
+  grid-template-columns: minmax(142px, 0.42fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 13px;
+}
+
+.phone-country-field select {
+  display: block;
+  width: 100%;
+  height: 42px;
+  padding: 0 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+  color: var(--ink);
+  outline: 0;
+  background: var(--white);
+  font-size: 11px;
+}
+
+.phone-country-field select:focus {
+  border-color: var(--moss);
+  box-shadow: 0 0 0 3px rgba(46, 107, 91, 0.1);
+}
+
+.phone-recaptcha {
+  width: 304px;
+  max-width: 100%;
+  margin-inline: auto;
+  min-height: 78px;
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+}
+
+.phone-recaptcha-label {
+  width: 304px;
+  max-width: 100%;
+  margin: -2px auto -7px;
+  color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.phone-change-button {
+  align-self: flex-start;
+  margin-top: -4px;
+}
+
 .auth-divider {
   display: flex;
   align-items: center;
@@ -735,10 +885,6 @@ button:disabled {
   height: 1px;
   background: var(--line);
   content: '';
-}
-
-.auth-guest-button {
-  width: 100%;
 }
 
 .auth-guest-note {
@@ -2848,6 +2994,22 @@ button:disabled {
     padding: 38px 22px 45px;
     border-top: 1px solid #d8d4c8;
     border-left: 0;
+  }
+
+  .auth-panel-methods {
+    margin-top: 26px;
+    padding-top: 19px;
+  }
+
+  .auth-panel-footer {
+    margin-top: 24px;
+    padding-top: 15px;
+  }
+
+  .auth-guest-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 7px;
   }
 
   .auth-variant-split-case .auth-copy h1 {
