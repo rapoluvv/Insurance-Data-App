@@ -1233,6 +1233,7 @@ function App() {
   const [loadError, setLoadError] = useState('');
   const [browserDraft, setBrowserDraft] = useState(() => readDraftSnapshot());
   const [currentTime, setCurrentTime] = useState(() => new Date());
+  const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth > 840);
   const [demoDisplayName, setDemoDisplayName] = useState(() => getDemoProfileName('agent'));
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileName, setProfileName] = useState('');
@@ -1622,6 +1623,15 @@ function App() {
     setStatusFilter('all');
   }
 
+  function toggleSidebar() {
+    setSidebarOpen((current) => !current);
+  }
+
+  function navigateToView(nextView) {
+    setView(nextView);
+    if (window.innerWidth <= 840) setSidebarOpen(false);
+  }
+
   if (hasFirebaseConfig && authSession.loading) {
     return <AuthLoading />;
   }
@@ -1631,7 +1641,7 @@ function App() {
   }
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${sidebarOpen ? 'sidebar-open' : 'sidebar-collapsed'}`}>
       <aside className="sidebar">
         <div className="brand-lockup">
           <span className="brand-mark" aria-hidden="true"><span className="brand-mark-line" /></span>
@@ -1651,8 +1661,8 @@ function App() {
         </div>}
         <nav className="main-nav" aria-label="Main navigation">
           <span className="sidebar-label">Workspace</span>
-          <button className={view === 'overview' ? 'nav-item is-active' : 'nav-item'} onClick={() => setView('overview')} type="button"><Icon name="grid" size={18} /><span>Overview</span><span className="nav-marker" /></button>
-          <button className={view === 'records' ? 'nav-item is-active' : 'nav-item'} onClick={() => setView('records')} type="button"><Icon name="file" size={18} /><span>{role === 'agent' ? 'Submissions' : 'My submissions'}</span><span className="nav-count">{scopedRecords.length}</span></button>
+          <button className={view === 'overview' ? 'nav-item is-active' : 'nav-item'} onClick={() => navigateToView('overview')} type="button"><Icon name="grid" size={18} /><span>Overview</span><span className="nav-marker" /></button>
+          <button className={view === 'records' ? 'nav-item is-active' : 'nav-item'} onClick={() => navigateToView('records')} type="button"><Icon name="file" size={18} /><span>{role === 'agent' ? 'Submissions' : 'My submissions'}</span><span className="nav-count">{scopedRecords.length}</span></button>
         </nav>
         <div className="sidebar-bottom">
           <div className="security-note"><Icon name={isGuestMode ? 'info' : 'shield'} size={17} /><div><strong>{isGuestMode ? 'Guest mode' : 'Role-aware by design'}</strong><span>{isAnonymousGuest ? 'Submitted records sync securely.' : isGuestMode ? 'Records stay on this device.' : 'Private information stays in scope.'}</span></div></div>
@@ -1667,8 +1677,21 @@ function App() {
           {profileOpen && <ProfileEditor error={profileError} isSaving={isSavingProfile} name={profileName} onCancel={() => setProfileOpen(false)} onChange={setProfileName} onSave={handleSaveProfile} />}
         </div>
       </aside>
+      <button aria-label="Close navigation" className="sidebar-scrim" onClick={() => setSidebarOpen(false)} type="button" />
+      <button aria-expanded={sidebarOpen} aria-label={sidebarOpen ? 'Hide navigation' : 'Show navigation'} className="sidebar-toggle desktop-sidebar-toggle" onClick={toggleSidebar} type="button">
+        <Icon name="menu" size={18} />
+      </button>
 
       <main className="main-content">
+        <div className="mobile-topbar">
+          <div className="mobile-brand-lockup">
+            <span className="brand-mark" aria-hidden="true"><span className="brand-mark-line" /></span>
+            <div><strong>databook</strong><small>insurance data</small></div>
+          </div>
+          <button aria-expanded={sidebarOpen} aria-label={sidebarOpen ? 'Close navigation' : 'Open navigation'} className="sidebar-toggle mobile-sidebar-toggle" onClick={toggleSidebar} type="button">
+            <Icon name="menu" size={19} />
+          </button>
+        </div>
         {loadError && <div className="load-error" role="alert"><Icon name="info" size={16} />{loadError}</div>}
         {view === 'overview' && <OverviewView browserDraft={browserDraft} currentTime={currentTime} isAnonymousGuest={isAnonymousGuest} isGuest={isGuestMode} onContinueDraft={continueBrowserDraft} onExitGuest={handleExitGuest} onStartNew={openNewForm} onViewRecords={() => setView('records')} records={scopedRecords} role={role} user={user} />}
         {view === 'records' && <RecordsView isAnonymousGuest={isAnonymousGuest} isGuest={isGuestMode} onDelete={handleDelete} onEdit={openEdit} onExport={() => { exportRecords(scopedRecords); notify('Export started.'); }} onImport={handleImport} onOpen={setSelectedRecord} onStartNew={openNewForm} records={scopedRecords} role={role} search={search} setSearch={setSearch} setStatusFilter={setStatusFilter} statusFilter={statusFilter} />}
