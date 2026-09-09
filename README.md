@@ -116,6 +116,10 @@ The project includes a one-time Admin SDK helper:
 
 The helper preserves any existing custom claims and adds `agent: true`. The agent must sign out and sign in again before the app sees the new role. The service-account JSON is ignored by Git and must never be used in the browser.
 
+Each saved record keeps the applicant/owner fields separate from the person who saved or submitted it: `submittedById`, `submittedByName`, `submittedByEmail`, `submittedByMode`, and `submittedAt`. Agents see the authenticated login name beside the case number and in the record detail drawer. Anonymous guest submissions use the applicant name entered in the form because there is no recoverable account identity.
+
+Human-readable case numbers are generated as the next padded `CASE-0001`-style number based on loaded records. Existing legacy IDs remain unchanged. This client-side sequence is suitable for the current app workflow; a high-concurrency production deployment should move number allocation to a trusted server-side counter to guarantee global sequencing.
+
 ### Assigning agents after deployment
 
 You do **not** run the helper on Firebase Hosting or expose it through the deployed React app. Run it from a trusted admin computer after deployment; it updates the Firebase project directly, so the deployed app sees the role on the agent's next sign-in.

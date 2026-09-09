@@ -219,8 +219,12 @@ function getDateKey(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
-function createCaseId() {
-  return `CASE-${String(Date.now()).slice(-4)}`;
+function createCaseId(records = []) {
+  const highestNumber = records.reduce((highest, record) => {
+    const match = String(record.caseNumber || record.id || '').match(/^CASE-(\d+)$/i);
+    return match ? Math.max(highest, Number(match[1])) : highest;
+  }, 0);
+  return `CASE-${String(highestNumber + 1).padStart(4, '0')}`;
 }
 
 function hasFormContent(form) {
@@ -838,7 +842,7 @@ function RecordsView({
 }) {
   const filteredRecords = records.filter((record) => {
     const query = search.trim().toLowerCase();
-    const matchesSearch = !query || [record.id, record.applicantName, record.planName, record.ownerName]
+    const matchesSearch = !query || [record.id, record.applicantName, record.planName, record.ownerName, record.submittedByName, record.submittedByEmail]
       .filter(Boolean)
       .some((value) => value.toLowerCase().includes(query));
     const matchesStatus = statusFilter === 'all' || record.status === statusFilter;
@@ -911,7 +915,7 @@ function RecordsView({
               <span className="person-mark">{(record.applicantName || '?').slice(0, 1).toUpperCase()}</span>
               <span>
                 <strong>{record.applicantName || 'Unnamed applicant'}</strong>
-                <small>{record.id} · {role === 'agent' ? record.ownerName || 'Customer' : 'Your case'}</small>
+                <small>{record.id} · {role === 'agent' ? `Submitted by ${record.submittedByName || record.ownerName || 'Customer'}` : 'Your case'}</small>
               </span>
             </button>
             <div className="record-plan">
@@ -1208,7 +1212,7 @@ function RecordDrawer({ record, onClose, onEdit }) {
           <div className="drawer-total"><span>Sum assured</span><strong>{formatMoney(record.sumAssured)}</strong><small>{formatMoney(record.premium)} {data.premiumMode?.toLowerCase() || 'annual'} premium</small></div>
           <div className="drawer-section"><span className="drawer-section-label">Applicant</span><dl><div><dt>Date of birth</dt><dd>{formatDate(data.dateOfBirth)}</dd></div><div><dt>Mobile</dt><dd>{data.mobile || 'Not added'}</dd></div><div><dt>Email</dt><dd>{data.email || 'Not added'}</dd></div><div><dt>Occupation</dt><dd>{data.occupation || 'Not added'}</dd></div></dl></div>
           <div className="drawer-section"><span className="drawer-section-label">Nominee</span><dl>{(data.nominees || []).map((nominee, index) => <div key={`${nominee.name}-${index}`}><dt>{nominee.relation || 'Nominee'} · {nominee.share || 0}%</dt><dd>{nominee.name || 'Not added'}</dd></div>)}</dl></div>
-          <div className="drawer-section"><span className="drawer-section-label">Ownership</span><p className="drawer-note">This case is owned by <strong>{record.ownerName || 'the customer'}</strong>{record.agentName ? ` and visible to ${record.agentName}.` : '.'}</p></div>
+          <div className="drawer-section"><span className="drawer-section-label">Ownership & submission</span><dl><div><dt>Applicant / owner</dt><dd>{record.ownerName || 'Not added'}</dd></div><div><dt>Submitted by</dt><dd>{record.submittedByName || record.ownerName || 'Unknown user'}</dd></div>{record.submittedByEmail && <div><dt>Email</dt><dd>{record.submittedByEmail}</dd></div>}<div><dt>Access</dt><dd>{record.agentName ? `Visible to ${record.agentName}` : 'Role-scoped'}</dd></div></dl></div>
         </div>
         <div className="drawer-footer"><button className="button button-secondary" onClick={onClose} type="button">Close</button><button className="button button-primary" onClick={() => onEdit(record)} type="button"><Icon name="edit" size={15} /> Edit record</button></div>
       </aside>
@@ -1538,21 +1542,37 @@ function App() {
 
   function buildRecord(status, session = authSession.user) {
     const existing = records.find((record) => record.id === editingId);
+    const now = new Date().toISOString();
+    const submittedByName = session?.mode === 'anonymous'
+      ? form.fullName || 'Guest'
+      : session?.name || user.name || 'Unknown user';
+    const submittedByMode = session?.mode === 'anonymous'
+      ? 'anonymous'
+      : session?.mode === 'guest'
+        ? 'local-guest'
+        : 'authenticated';
+    const caseId = editingId || createCaseId(records);
     return {
       ...(existing || {}),
-      id: editingId || createCaseId(),
+      id: caseId,
+      caseNumber: existing?.caseNumber || caseId,
       ownerId: session?.mode === 'anonymous'
         ? session.id
         : existing?.ownerId || session?.id || user.id,
       ownerName: form.fullName || existing?.ownerName || 'Unnamed customer',
       agentName: role === 'agent' ? user.name : existing?.agentName || 'Riya Menon',
+      submittedById: existing?.submittedById || session?.id || user.id,
+      submittedByName: existing?.submittedById ? existing.submittedByName : submittedByName,
+      submittedByEmail: existing?.submittedById ? existing.submittedByEmail || '' : session?.email || '',
+      submittedByMode: existing?.submittedById ? existing.submittedByMode : submittedByMode,
       applicantName: form.fullName || 'Unnamed applicant',
       planName: form.planName || 'Plan not selected',
       premium: Number(form.premium || 0),
       sumAssured: Number(form.sumAssured || 0),
       status,
-      submissionMode: session?.mode === 'anonymous' ? 'anonymous' : session?.mode === 'guest' ? 'local-guest' : 'authenticated',
-      updatedAt: new Date().toISOString(),
+      submissionMode: submittedByMode,
+      submittedAt: status === 'submitted' ? existing?.submittedAt || now : existing?.submittedAt || null,
+      updatedAt: now,
       formData: form,
     };
   }
