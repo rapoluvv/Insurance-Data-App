@@ -122,7 +122,7 @@ The helper preserves any existing custom claims and adds `agent: true`. The agen
 
 Each saved record keeps the applicant/owner fields separate from the person who saved or submitted it: `submittedById`, `submittedByName`, `submittedByEmail`, `submittedByMode`, and `submittedAt`. Agents see the authenticated login name beside the case number and in the record detail drawer. Anonymous guest submissions use the applicant name entered in the form because there is no recoverable account identity.
 
-Human-readable case numbers are generated as the next padded `CASE-0001`-style number based on loaded records. Existing legacy IDs remain unchanged. This client-side sequence is suitable for the current app workflow; a high-concurrency production deployment should move number allocation to a trusted server-side counter to guarantee global sequencing.
+New records use a globally unique, date-based case number such as `CASE-20260909-A7F2` plus a separate random Firestore document ID. This prevents two customers submitting at the same time—or two customers seeing only their own records—from accidentally targeting the same document. Existing legacy IDs remain unchanged. A future trusted server-side counter can provide strictly sequential numbers if that becomes a business requirement.
 
 ### Assigning agents after deployment
 

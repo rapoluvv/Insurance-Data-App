@@ -232,12 +232,22 @@ function getDateKey(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
-function createCaseId(records = []) {
-  const highestNumber = records.reduce((highest, record) => {
-    const match = String(record.caseNumber || record.id || '').match(/^CASE-(\d+)$/i);
-    return match ? Math.max(highest, Number(match[1])) : highest;
-  }, 0);
-  return `CASE-${String(highestNumber + 1).padStart(4, '0')}`;
+function createRecordId() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function createCaseNumber() {
+  const now = new Date();
+  const datePart = [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, '0'),
+    String(now.getDate()).padStart(2, '0'),
+  ].join('');
+  const randomPart = Math.random().toString(36).slice(2, 6).toUpperCase();
+  return `CASE-${datePart}-${randomPart}`;
 }
 
 function hasFormContent(form) {
@@ -818,7 +828,7 @@ function OverviewView({ role, user, records, currentTime, isGuest, isAnonymousGu
           <div className="recent-list">
             {latestRecords.map((record) => (
               <button className="recent-row" key={record.id} onClick={onViewRecords} type="button">
-                <span className="record-index">{record.id.slice(-2)}</span>
+                <span className="record-index">{(record.caseNumber || record.id).slice(-2)}</span>
                 <span className="recent-main">
                   <strong>{record.applicantName || 'Unnamed applicant'}</strong>
                   <small>{record.planName || 'Plan not selected'} · {formatDate(record.updatedAt)}</small>
@@ -857,7 +867,7 @@ function RecordsView({
 }) {
   const filteredRecords = records.filter((record) => {
     const query = search.trim().toLowerCase();
-    const matchesSearch = !query || [record.id, record.applicantName, record.planName, record.ownerName, record.submittedByName, record.submittedByEmail]
+    const matchesSearch = !query || [record.caseNumber, record.id, record.applicantName, record.planName, record.ownerName, record.submittedByName, record.submittedByEmail]
       .filter(Boolean)
       .some((value) => value.toLowerCase().includes(query));
     const matchesStatus = statusFilter === 'all' || record.status === statusFilter;
@@ -930,7 +940,7 @@ function RecordsView({
               <span className="person-mark">{(record.applicantName || '?').slice(0, 1).toUpperCase()}</span>
               <span>
                 <strong>{record.applicantName || 'Unnamed applicant'}</strong>
-                <small>{record.id} · {role === 'agent' ? `Submitted by ${record.submittedByName || record.ownerName || 'Customer'}` : 'Your case'}</small>
+                <small>{record.caseNumber || record.id} · {role === 'agent' ? `Submitted by ${record.submittedByName || record.ownerName || 'Customer'}` : 'Your case'}</small>
               </span>
             </button>
             <div className="record-plan">
@@ -1219,7 +1229,7 @@ function RecordDrawer({ record, onClose, onEdit }) {
       <button aria-label="Close record details" className="drawer-backdrop" onClick={onClose} type="button" />
       <aside aria-labelledby="drawer-title" className="record-drawer" role="dialog">
         <div className="drawer-header">
-          <div><span className="drawer-label">{record.id}</span><h2 id="drawer-title">{record.applicantName || 'Unnamed applicant'}</h2></div>
+        <div><span className="drawer-label">{record.caseNumber || record.id}</span><h2 id="drawer-title">{record.applicantName || 'Unnamed applicant'}</h2></div>
           <button aria-label="Close details" className="icon-button" onClick={onClose} type="button"><Icon name="close" size={18} /></button>
         </div>
         <div className="drawer-summary"><StatusBadge status={record.status} /><span>{formatDate(record.updatedAt)}</span><span>{record.planName || 'Plan not selected'}</span></div>
@@ -1626,11 +1636,12 @@ function App() {
       : session?.mode === 'guest'
         ? 'local-guest'
         : 'authenticated';
-    const caseId = editingId || createCaseId(records);
+    const recordId = editingId || createRecordId();
+    const caseNumber = existing?.caseNumber || (editingId ? existing?.id || recordId : createCaseNumber());
     return {
       ...(existing || {}),
-      id: caseId,
-      caseNumber: existing?.caseNumber || caseId,
+      id: recordId,
+      caseNumber,
       ownerId: session?.mode === 'anonymous'
         ? session.id
         : existing?.ownerId || session?.id || user.id,
@@ -1678,7 +1689,7 @@ function App() {
     if (!record) return;
     setEditingId(record.id);
     setBrowserDraft(form);
-    notify(`${record.id} saved as a draft.`);
+    notify(`${record.caseNumber || record.id} saved as a draft.`);
   }
 
   async function handleSubmit() {
@@ -1713,17 +1724,17 @@ function App() {
     setEditingId(null);
     setView('records');
     setActiveStep(0);
-    notify(`${record.id} submitted and ready for review.`);
+    notify(`${record.caseNumber || record.id} submitted and ready for review.`);
   }
 
   async function handleDelete(record) {
-    const confirmed = window.confirm(`Delete ${record.id}? This cannot be undone.`);
+    const confirmed = window.confirm(`Delete ${record.caseNumber || record.id}? This cannot be undone.`);
     if (!confirmed) return;
     try {
       await removeRecord(record.id, authSession.user);
       setRecords((current) => current.filter((item) => item.id !== record.id));
       setSelectedRecord(null);
-      notify(`${record.id} was deleted.`);
+      notify(`${record.caseNumber || record.id} was deleted.`);
     } catch (error) {
       notify(error.message || 'The record could not be deleted.', 'error');
     }
