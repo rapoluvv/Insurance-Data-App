@@ -68,6 +68,8 @@ The login page also includes **Create an account** for Email/Password users. Goo
 
 Agents can use **Share customer link** on the overview screen to open the device share menu on supported mobile browsers (WhatsApp, Messages, email, etc.). Desktop browsers without the Web Share API copy the invite URL instead. Opening that URL automatically creates a Firebase anonymous guest session and opens the intake form. The link is an onboarding shortcut, not an access-control token; Firestore Rules still enforce ownership, and the submitted record includes the inviting agent metadata when present. Customers with zero records also open directly into a new intake after signing in.
 
+After an invited customer submits successfully, the invite query parameters are removed from the browser URL and the app returns to its normal records route.
+
 ### 4. Create the Firestore database
 
 1. Open **Build → Firestore Database → Create database**.

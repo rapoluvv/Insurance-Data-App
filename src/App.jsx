@@ -1425,6 +1425,13 @@ function App() {
     }
   }
 
+  function clearInviteUrl(nextView = 'records') {
+    const cleanUrl = new URL(window.location.href);
+    ['invite', 'inviteId', 'agentId', 'agentName'].forEach((key) => cleanUrl.searchParams.delete(key));
+    cleanUrl.hash = `#/${nextView}`;
+    window.history.replaceState(null, '', `${cleanUrl.pathname}${cleanUrl.search}${cleanUrl.hash}`);
+  }
+
   async function handleSaveProfile(event) {
     event.preventDefault();
     const nextName = profileName.trim();
@@ -1722,6 +1729,7 @@ function App() {
       setRecords([record]);
     }
     setEditingId(null);
+    if (inviteContext.isInvite) clearInviteUrl('records');
     setView('records');
     setActiveStep(0);
     notify(`${record.caseNumber || record.id} submitted and ready for review.`);
