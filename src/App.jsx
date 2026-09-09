@@ -12,6 +12,7 @@ import {
 import { hasFirebaseConfig } from './lib/firebase.js';
 import {
   createAccount,
+  getAuthErrorMessage,
   getGuestSession,
   updateGuestDisplayName,
   signIn,
@@ -1626,7 +1627,7 @@ function App() {
   }
 
   if (hasFirebaseConfig && !authSession.user) {
-    return <SignInView error={authSession.error?.message} isSigningIn={isSigningIn} onClearError={handleClearAuthError} onContinueGuest={handleContinueGuest} onGoogleSignIn={handleGoogleSignIn} onSignIn={handleSignIn} onSignUp={handleSignUp} />;
+    return <SignInView error={getAuthErrorMessage(authSession.error)} isSigningIn={isSigningIn} onClearError={handleClearAuthError} onContinueGuest={handleContinueGuest} onGoogleSignIn={handleGoogleSignIn} onSignIn={handleSignIn} onSignUp={handleSignUp} />;
   }
 
   return (
@@ -1637,6 +1638,10 @@ function App() {
           <div><strong>databook</strong><small>insurance data</small></div>
         </div>
         <div className="sidebar-divider" />
+        <div className="mobile-account-actions" aria-label="Account actions">
+          <button aria-label="Edit profile name" className="user-more" onClick={() => setProfileOpen((current) => !current)} title="Edit profile name" type="button"><Icon name="edit" size={15} /></button>
+          {hasFirebaseConfig && <button aria-label={isGuestMode ? 'Exit guest mode' : 'Sign out'} className="user-more" onClick={isGuestMode ? handleExitGuest : handleSignOut} title={isGuestMode ? 'Exit guest mode' : 'Sign out'} type="button"><Icon name="logout" size={15} /></button>}
+        </div>
         {!hasFirebaseConfig && <div className="role-switcher">
           <span className="sidebar-label">Viewing as</span>
           <div className="role-toggle" role="group" aria-label="Choose workspace role">

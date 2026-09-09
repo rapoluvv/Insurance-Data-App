@@ -1,11 +1,13 @@
 import {
   GoogleAuthProvider,
+  getRedirectResult,
   getIdTokenResult,
   onAuthStateChanged,
   signInAnonymously,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signInWithPopup,
+  signInWithRedirect,
   signOut,
   updateProfile,
 } from 'firebase/auth';
@@ -71,6 +73,24 @@ export function updateGuestDisplayName(name) {
   return updated;
 }
 
+export function getAuthErrorMessage(error) {
+  if (!error) return '';
+  const code = error?.code;
+  const messages = {
+    'auth/account-exists-with-different-credential': 'An account already exists with a different sign-in method. Use that method first.',
+    'auth/email-already-in-use': 'An account already exists for this email. Try signing in instead.',
+    'auth/invalid-credential': 'That sign-in credential is no longer valid. Try again.',
+    'auth/invalid-email': 'Enter a valid email address.',
+    'auth/popup-blocked': 'Your browser blocked the Google sign-in popup. Allow popups for this site and try again.',
+    'auth/popup-closed-by-user': 'The Google sign-in window was closed before it finished.',
+    'auth/unauthorized-domain': `Google sign-in is not authorized for ${window.location.hostname}. Add this domain in Firebase Authentication → Settings → Authorized domains.`,
+    'auth/user-disabled': 'This account has been disabled. Contact an administrator.',
+    'auth/user-not-found': 'No account exists for these credentials.',
+    'auth/wrong-password': 'The email or password is incorrect.',
+  };
+  return messages[code] || error?.message || 'Authentication could not be completed.';
+}
+
 async function toAuthSession(firebaseUser) {
   const token = await getIdTokenResult(firebaseUser);
   const isAnonymous = firebaseUser.isAnonymous;
@@ -92,9 +112,15 @@ async function toAuthSession(firebaseUser) {
 export function subscribeToAuth(listener) {
   if (!hasFirebaseConfig) return () => {};
 
+  let redirectError = null;
+  getRedirectResult(auth).catch((error) => {
+    redirectError = error;
+    listener({ user: null, error });
+  });
+
   return onAuthStateChanged(auth, (firebaseUser) => {
     if (!firebaseUser) {
-      listener({ user: null, error: null });
+      listener({ user: null, error: redirectError });
       return;
     }
 
@@ -144,8 +170,23 @@ export async function signInWithGoogle() {
   const provider = new GoogleAuthProvider();
   provider.addScope('profile');
   provider.addScope('email');
-  const credential = await signInWithPopup(auth, provider);
-  return toAuthSession(credential.user);
+  const mobileBrowser = typeof navigator !== 'undefined'
+    && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+  if (mobileBrowser) {
+    await signInWithRedirect(auth, provider);
+    return null;
+  }
+
+  try {
+    const credential = await signInWithPopup(auth, provider);
+    return toAuthSession(credential.user);
+  } catch (error) {
+    if (['auth/popup-blocked', 'auth/operation-not-supported-in-this-environment'].includes(error.code)) {
+      await signInWithRedirect(auth, provider);
+      return null;
+    }
+    throw error;
+  }
 }
 
 export async function updateUserDisplayName(name) {
