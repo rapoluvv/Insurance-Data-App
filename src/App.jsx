@@ -305,7 +305,7 @@ function Icon({ name, size = 18 }) {
     trash: <><path d="M4.5 7h15M9 7V4.5h6V7M7 7l.8 13h8.4L17 7M10 11v5M14 11v5" /></>,
     close: <><path d="m6 6 12 12M18 6 6 18" /></>,
     logout: <><path d="M10 5H5v14h5M14 8l4 4-4 4M18 12H9" /></>,
-    menu: <><path d="M4 7h16M4 12h16M4 17h16" /></>,
+    menu: <path d="M4 7h16M4 12h16M4 17h16" />,
     filter: <><path d="M4 6h16M7 12h10M10 18h4" /></>,
     info: <><circle cx="12" cy="12" r="8.5" /><path d="M12 10.5v5M12 7.5h.01" /></>,
   };
@@ -742,7 +742,7 @@ function OverviewView({ role, user, records, currentTime, isGuest, isAnonymousGu
         <div className="welcome-copy">
           <span className="welcome-mark" aria-hidden="true"><span /></span>
           <div>
-            <h2 id="welcome-title">{getGreeting(currentTime)}, {user.name.split(' ')[0]}.</h2>
+            <h2 id="welcome-title">{getGreeting(currentTime)}, {user.name}.</h2>
             <p>{isAgent ? 'The next careful entry is usually the one that keeps a case moving.' : 'Your information stays together from first detail to final review.'}</p>
           </div>
         </div>
@@ -1643,9 +1643,14 @@ function App() {
   return (
     <div className={`app-shell ${sidebarOpen ? 'sidebar-open' : 'sidebar-collapsed'}`}>
       <aside className="sidebar">
-        <div className="brand-lockup">
-          <span className="brand-mark" aria-hidden="true"><span className="brand-mark-line" /></span>
-          <div><strong>databook</strong><small>insurance data</small></div>
+        <div className="sidebar-header">
+          <div className="brand-lockup">
+            <span className="brand-mark" aria-hidden="true"><span className="brand-mark-line" /></span>
+            <div><strong>databook</strong><small>insurance data</small></div>
+          </div>
+          <button aria-expanded={sidebarOpen} aria-label={sidebarOpen ? 'Collapse navigation' : 'Expand navigation'} className="sidebar-collapse-toggle" onClick={toggleSidebar} title={sidebarOpen ? 'Collapse navigation' : 'Expand navigation'} type="button">
+            <Icon name="menu" size={17} />
+          </button>
         </div>
         <div className="sidebar-divider" />
         <div className="mobile-account-actions" aria-label="Account actions">
@@ -1678,10 +1683,6 @@ function App() {
         </div>
       </aside>
       <button aria-label="Close navigation" className="sidebar-scrim" onClick={() => setSidebarOpen(false)} type="button" />
-      <button aria-expanded={sidebarOpen} aria-label={sidebarOpen ? 'Hide navigation' : 'Show navigation'} className="sidebar-toggle desktop-sidebar-toggle" onClick={toggleSidebar} type="button">
-        <Icon name="menu" size={18} />
-      </button>
-
       <main className="main-content">
         <div className="mobile-topbar">
           <div className="mobile-brand-lockup">
