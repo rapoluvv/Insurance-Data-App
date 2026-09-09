@@ -10,7 +10,13 @@ import {
   saveRecord,
 } from './lib/storage.js';
 import { hasFirebaseConfig } from './lib/firebase.js';
-import { signIn, signOutUser, subscribeToAuth } from './lib/auth.js';
+import {
+  getGuestSession,
+  signIn,
+  signInAnonymouslyUser,
+  signOutUser,
+  subscribeToAuth,
+} from './lib/auth.js';
 
 const ROLE_USERS = {
   agent: {
@@ -158,6 +164,10 @@ function formatDate(value) {
   }).format(date);
 }
 
+function getDateKey(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
 function createCaseId() {
   return `CASE-${String(Date.now()).slice(-4)}`;
 }
@@ -282,7 +292,7 @@ function AuthLoading() {
   );
 }
 
-function SignInView({ error, isSigningIn, onSignIn }) {
+function SignInView({ error, isSigningIn, onContinueGuest, onSignIn }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
@@ -312,6 +322,12 @@ function SignInView({ error, isSigningIn, onSignIn }) {
             {!isSigningIn && <Icon name="arrow" size={16} />}
           </button>
         </form>
+        <div className="auth-divider"><span>or</span></div>
+        <button className="button button-secondary auth-guest-button" onClick={onContinueGuest} type="button">
+          Continue as guest
+          <Icon name="arrow" size={16} />
+        </button>
+        <p className="auth-guest-note">No account needed. Drafts stay in this browser. When you submit, a temporary anonymous Firebase account securely sends the record to your agent.</p>
         <p className="auth-note"><Icon name="shield" size={15} /> Agent access is assigned with a server-side Firebase claim.</p>
       </section>
     </main>
@@ -466,7 +482,83 @@ function SectionHeading({ title, description, number }) {
   );
 }
 
-function OverviewView({ role, user, records, onStartNew, onContinueDraft, onViewRecords, browserDraft }) {
+function ActivityChart({ records }) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const days = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(today);
+    date.setDate(today.getDate() - (6 - index));
+    return date;
+  });
+  const activity = days.map((date) => {
+    const dateKey = getDateKey(date);
+    const updates = records.filter((record) => getDateKey(new Date(record.updatedAt)) === dateKey);
+    return {
+      date,
+      submitted: updates.filter((record) => record.status === 'submitted').length,
+      drafts: updates.filter((record) => record.status === 'draft').length,
+    };
+  });
+  const maxValue = Math.max(1, ...activity.map((day) => Math.max(day.submitted, day.drafts)));
+  const totalUpdates = activity.reduce((sum, day) => sum + day.submitted + day.drafts, 0);
+  const chart = { width: 460, height: 175, left: 27, right: 13, top: 15, bottom: 31 };
+  const plotWidth = chart.width - chart.left - chart.right;
+  const plotHeight = chart.height - chart.top - chart.bottom;
+  const xFor = (index) => chart.left + (index * plotWidth) / (activity.length - 1);
+  const yFor = (value) => chart.top + plotHeight - (value / maxValue) * plotHeight;
+  const pointsFor = (key) => activity.map((day, index) => `${xFor(index)},${yFor(day[key])}`).join(' ');
+  const formatDay = (date) => new Intl.DateTimeFormat('en-IN', { weekday: 'short' }).format(date).slice(0, 3);
+
+  return (
+    <aside className="surface-panel chart-panel" aria-labelledby="activity-title">
+      <div className="panel-heading">
+        <div>
+          <h2 id="activity-title">Case activity</h2>
+          <p>Updates across the last seven days.</p>
+        </div>
+        <div className="chart-total">
+          <strong>{totalUpdates}</strong>
+          <span>updates</span>
+        </div>
+      </div>
+      <div className="chart-wrap">
+        <svg
+          aria-labelledby="activity-chart-title activity-chart-description"
+          className="activity-chart"
+          role="img"
+          viewBox={`0 0 ${chart.width} ${chart.height}`}
+        >
+          <title id="activity-chart-title">Submitted and draft case activity</title>
+          <desc id="activity-chart-description">A seven-day line chart showing submitted and draft record updates.</desc>
+          {[0, 0.5, 1].map((position) => {
+            const y = chart.top + plotHeight * position;
+            return <line className="chart-grid-line" key={position} x1={chart.left} x2={chart.width - chart.right} y1={y} y2={y} />;
+          })}
+          <text className="chart-scale" x="3" y={chart.top + 3}>{maxValue}</text>
+          <text className="chart-scale" x="9" y={chart.top + plotHeight + 3}>0</text>
+          <polyline className="chart-submitted-line" points={pointsFor('submitted')} />
+          <polyline className="chart-draft-line" points={pointsFor('drafts')} />
+          {activity.map((day, index) => (
+            <g key={getDateKey(day.date)}>
+              <circle className="chart-point chart-point-submitted" cx={xFor(index)} cy={yFor(day.submitted)} r="3.5" />
+              <circle className="chart-point chart-point-draft" cx={xFor(index)} cy={yFor(day.drafts)} r="3.5" />
+              <text className="chart-label" textAnchor="middle" x={xFor(index)} y={chart.height - 8}>{formatDay(day.date)}</text>
+            </g>
+          ))}
+        </svg>
+      </div>
+      <div className="chart-footer">
+        <div className="chart-legend">
+          <span><i className="legend-swatch legend-submitted" />Submitted</span>
+          <span><i className="legend-swatch legend-draft" />Drafts</span>
+        </div>
+        <span className="chart-note">{totalUpdates ? 'A clear view of recent movement.' : 'No updates in this window.'}</span>
+      </div>
+    </aside>
+  );
+}
+
+function OverviewView({ role, user, records, isGuest, isAnonymousGuest, onExitGuest, onStartNew, onContinueDraft, onViewRecords, browserDraft }) {
   const submitted = records.filter((record) => record.status === 'submitted');
   const drafts = records.filter((record) => record.status === 'draft');
   const totalPremium = submitted.reduce((sum, record) => sum + Number(record.premium || 0), 0);
@@ -486,7 +578,20 @@ function OverviewView({ role, user, records, onStartNew, onContinueDraft, onView
         </button>
       </header>
 
-      {!hasFirebaseConfig && (
+      {isGuest && (
+        <div className="guest-banner" role="status">
+          <span className="guest-mark"><Icon name="info" size={15} /></span>
+          <span>
+            <strong>{isAnonymousGuest ? 'Guest submission.' : 'Guest mode.'}</strong>{' '}
+            {isAnonymousGuest
+              ? 'Submitted records sync securely to your agent through this temporary browser session.'
+              : 'Drafts stay in this browser. Submitting a record creates a temporary anonymous account so your agent can review it.'}
+          </span>
+          <button className="text-button" onClick={onExitGuest} type="button">Sign in instead <Icon name="arrow" size={15} /></button>
+        </div>
+      )}
+
+      {!hasFirebaseConfig && !isGuest && (
         <div className="demo-banner" role="status">
           <span className="demo-mark"><Icon name="info" size={15} /></span>
           <span><strong>Demo workspace.</strong> Add Firebase environment values to sync authentication and records across devices.</span>
@@ -563,30 +668,7 @@ function OverviewView({ role, user, records, onStartNew, onContinueDraft, onView
             {!latestRecords.length && <p className="empty-copy">No records yet. Start the first intake to create your case score.</p>}
           </div>
         </section>
-
-        <aside className="surface-panel next-panel" aria-labelledby="next-title">
-          <div className="panel-heading">
-            <div>
-              <h2 id="next-title">Next best move</h2>
-              <p>A focused starting point for today.</p>
-            </div>
-          </div>
-          <div className="next-graphic" aria-hidden="true">
-            <span className="next-line line-one" />
-            <span className="next-line line-two" />
-            <span className="next-line line-three" />
-            <span className="next-dot" />
-            <span className="next-caption">09 sections</span>
-          </div>
-          <div className="next-copy">
-            <strong>{drafts.length ? 'Return to an unfinished case' : 'Start a new customer intake'}</strong>
-            <p>{drafts.length ? 'Keep the details together while the context is fresh.' : 'Build the record in clear, reviewable movements.'}</p>
-            <button className="button button-secondary button-small" onClick={drafts.length ? onViewRecords : onStartNew} type="button">
-              {drafts.length ? 'Open drafts' : 'Start intake'}
-              <Icon name="arrow" size={15} />
-            </button>
-          </div>
-        </aside>
+        <ActivityChart records={records} />
       </div>
     </div>
   );
@@ -595,6 +677,8 @@ function OverviewView({ role, user, records, onStartNew, onContinueDraft, onView
 function RecordsView({
   role,
   records,
+  isGuest,
+  isAnonymousGuest,
   search,
   setSearch,
   statusFilter,
@@ -664,7 +748,7 @@ function RecordsView({
 
       <div className="records-meta">
         <span><strong>{filteredRecords.length}</strong> {filteredRecords.length === 1 ? 'record' : 'records'} in view</span>
-        <span className="records-meta-note">{role === 'agent' ? 'Agent scope · all customers' : 'Customer scope · private to you'}</span>
+        <span className="records-meta-note">{isGuest ? isAnonymousGuest ? 'Guest scope · synced submissions' : 'Guest scope · this browser only' : role === 'agent' ? 'Agent scope · all customers' : 'Customer scope · private to you'}</span>
       </div>
 
       <section className="surface-panel table-panel" aria-label="Insurance records">
@@ -727,6 +811,8 @@ function FormView({
   onNext,
   onSaveDraft,
   onSubmit,
+  isGuest,
+  isAnonymousGuest,
 }) {
   const step = STEPS[activeStep];
   const isLastStep = activeStep === STEPS.length - 1;
@@ -905,7 +991,7 @@ function FormView({
             )}
 
             {activeStep === 8 && (
-              <ReviewPanel form={form} fieldErrors={fieldErrors} onStepChange={onStepChange} />
+              <ReviewPanel fieldErrors={fieldErrors} form={form} isAnonymousGuest={isAnonymousGuest} isGuest={isGuest} onStepChange={onStepChange} />
             )}
           </div>
 
@@ -926,7 +1012,7 @@ function FormView({
   );
 }
 
-function ReviewPanel({ form, fieldErrors, onStepChange }) {
+function ReviewPanel({ form, fieldErrors, isAnonymousGuest, isGuest, onStepChange }) {
   const reviewSections = [
     { step: 0, title: 'Applicant', fields: [['fullName', 'Name'], ['dateOfBirth', 'Date of birth'], ['gender', 'Gender'], ['maritalStatus', 'Marital status']] },
     { step: 1, title: 'Contact', fields: [['mobile', 'Mobile'], ['email', 'Email'], ['city', 'City'], ['state', 'State']] },
@@ -955,7 +1041,7 @@ function ReviewPanel({ form, fieldErrors, onStepChange }) {
           </section>
         ))}
       </div>
-      <div className="review-ready"><span className="ready-mark"><Icon name="shield" size={18} /></span><div><strong>Ready for a careful submit?</strong><p>This record will be visible to the agent workspace and to the customer who owns it.</p></div></div>
+      <div className="review-ready"><span className="ready-mark"><Icon name={isGuest ? 'info' : 'shield'} size={18} /></span><div><strong>Ready for a careful submit?</strong><p>{isGuest ? isAnonymousGuest ? 'This record will sync securely so your agent can review it. Your guest access remains tied to this browser.' : 'Submitting will create a temporary anonymous Firebase account and send this record securely to your agent.' : 'This record will be visible to the agent workspace and to the customer who owns it.'}</p></div></div>
     </div>
   );
 }
@@ -1007,12 +1093,16 @@ function App() {
   const [loadError, setLoadError] = useState('');
   const [browserDraft, setBrowserDraft] = useState(() => readDraftSnapshot());
 
+  const isGuestMode = hasFirebaseConfig && ['guest', 'anonymous'].includes(authSession.user?.mode);
+  const isAnonymousGuest = hasFirebaseConfig && authSession.user?.mode === 'anonymous';
   const user = hasFirebaseConfig
-    ? { ...ROLE_USERS[role], ...authSession.user, roleLabel: role === 'agent' ? 'Agent' : 'Customer' }
+    ? isGuestMode
+      ? authSession.user
+      : { ...ROLE_USERS[role], ...authSession.user, roleLabel: role === 'agent' ? 'Agent' : 'Customer' }
     : ROLE_USERS[role];
   const scopedRecords = useMemo(
-    () => records.filter((record) => role === 'agent' || record.ownerId === user.id),
-    [records, role, user.id],
+    () => records.filter((record) => user.role === 'agent' || record.ownerId === user.id),
+    [records, user.id, user.role],
   );
 
   useEffect(() => {
@@ -1040,8 +1130,12 @@ function App() {
   }, [authSession.loading, authSession.user]);
 
   useEffect(() => {
-    if (view === 'form' && hasFormContent(form)) saveDraftSnapshot(form);
-  }, [form, view]);
+    if (view === 'form' && hasFormContent(form)) saveDraftSnapshot(form, authSession.user);
+  }, [authSession.user, form, view]);
+
+  useEffect(() => {
+    setBrowserDraft(readDraftSnapshot(authSession.user));
+  }, [authSession.user]);
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -1062,6 +1156,31 @@ function App() {
     } finally {
       setIsSigningIn(false);
     }
+  }
+
+  function handleContinueGuest() {
+    const guest = getGuestSession();
+    setRole('customer');
+    setAuthSession({ loading: false, user: guest, error: null });
+    setRecords([]);
+    setSelectedRecord(null);
+    setLoadError('');
+    setView('overview');
+    notify('Guest mode enabled. Your entries will stay in this browser.');
+  }
+
+  async function handleExitGuest() {
+    try {
+      await signOutUser();
+    } catch (error) {
+      notify(error.message || 'Could not leave guest mode.', 'error');
+      return;
+    }
+    setAuthSession({ loading: false, user: null, error: null });
+    setRecords([]);
+    setSelectedRecord(null);
+    setBrowserDraft(null);
+    setView('overview');
   }
 
   async function handleSignOut() {
@@ -1124,7 +1243,7 @@ function App() {
   }
 
   function continueBrowserDraft() {
-    const draft = readDraftSnapshot();
+    const draft = readDraftSnapshot(authSession.user);
     if (!draft) {
       notify('That browser draft is no longer available.', 'error');
       setBrowserDraft(null);
@@ -1167,12 +1286,14 @@ function App() {
     handleStepChange(activeStep + 1);
   }
 
-  function buildRecord(status) {
+  function buildRecord(status, session = authSession.user) {
     const existing = records.find((record) => record.id === editingId);
     return {
       ...(existing || {}),
       id: editingId || createCaseId(),
-      ownerId: existing?.ownerId || user.id,
+      ownerId: session?.mode === 'anonymous'
+        ? session.id
+        : existing?.ownerId || session?.id || user.id,
       ownerName: form.fullName || existing?.ownerName || 'Unnamed customer',
       agentName: role === 'agent' ? user.name : existing?.agentName || 'Riya Menon',
       applicantName: form.fullName || 'Unnamed applicant',
@@ -1180,16 +1301,17 @@ function App() {
       premium: Number(form.premium || 0),
       sumAssured: Number(form.sumAssured || 0),
       status,
+      submissionMode: session?.mode === 'anonymous' ? 'anonymous' : session?.mode === 'guest' ? 'local-guest' : 'authenticated',
       updatedAt: new Date().toISOString(),
       formData: form,
     };
   }
 
-  async function persistRecord(status) {
+  async function persistRecord(status, session = authSession.user) {
     setIsSaving(true);
     try {
-      const record = buildRecord(status);
-      const result = await saveRecord(record, authSession.user);
+      const record = buildRecord(status, session);
+      const result = await saveRecord(record, session);
       setRecords((current) => result.records || [record, ...current.filter((item) => item.id !== record.id)]);
       return record;
     } catch (error) {
@@ -1218,10 +1340,25 @@ function App() {
       return;
     }
 
-    const record = await persistRecord('submitted');
+    let submitSession = authSession.user;
+    if (submitSession?.mode === 'guest') {
+      try {
+        submitSession = await signInAnonymouslyUser();
+        setAuthSession({ loading: false, user: submitSession, error: null });
+        setRole('customer');
+      } catch (error) {
+        notify('Guest submission needs Firebase Anonymous Authentication enabled. No data was uploaded.', 'error');
+        return;
+      }
+    }
+
+    const record = await persistRecord('submitted', submitSession);
     if (!record) return;
-    clearDraftSnapshot();
+    clearDraftSnapshot(submitSession?.mode === 'anonymous' ? authSession.user : submitSession);
     setBrowserDraft(null);
+    if (submitSession?.mode === 'anonymous' && authSession.user?.mode === 'guest') {
+      setRecords([record]);
+    }
     setEditingId(null);
     setView('records');
     setActiveStep(0);
@@ -1244,7 +1381,7 @@ function App() {
   function handleImport(event) {
     const [file] = event.target.files || [];
     if (!file) return;
-    importRecords(file)
+    importRecords(file, authSession.user)
       .then((imported) => {
         setRecords(imported);
         notify(`${imported.length} records imported.`);
@@ -1267,7 +1404,7 @@ function App() {
   }
 
   if (hasFirebaseConfig && !authSession.user) {
-    return <SignInView error={authSession.error?.message} isSigningIn={isSigningIn} onSignIn={handleSignIn} />;
+    return <SignInView error={authSession.error?.message} isSigningIn={isSigningIn} onContinueGuest={handleContinueGuest} onSignIn={handleSignIn} />;
   }
 
   return (
@@ -1289,19 +1426,18 @@ function App() {
           <span className="sidebar-label">Workspace</span>
           <button className={view === 'overview' ? 'nav-item is-active' : 'nav-item'} onClick={() => setView('overview')} type="button"><Icon name="grid" size={18} /><span>Overview</span><span className="nav-marker" /></button>
           <button className={view === 'records' ? 'nav-item is-active' : 'nav-item'} onClick={() => setView('records')} type="button"><Icon name="file" size={18} /><span>{role === 'agent' ? 'Submissions' : 'My submissions'}</span><span className="nav-count">{scopedRecords.length}</span></button>
-          <button className={view === 'form' ? 'nav-item is-active' : 'nav-item'} onClick={openNewForm} type="button"><Icon name="plus" size={18} /><span>New intake</span></button>
         </nav>
         <div className="sidebar-bottom">
-          <div className="security-note"><Icon name="shield" size={17} /><div><strong>Role-aware by design</strong><span>Private information stays in scope.</span></div></div>
-          <div className="user-card"><span className="avatar">{user.initials}</span><div><strong>{user.name}</strong><span>{user.roleLabel} workspace</span></div>{hasFirebaseConfig && <button aria-label="Sign out" className="user-more" onClick={handleSignOut} title="Sign out" type="button"><Icon name="logout" size={15} /></button>}</div>
+          <div className="security-note"><Icon name={isGuestMode ? 'info' : 'shield'} size={17} /><div><strong>{isGuestMode ? 'Guest mode' : 'Role-aware by design'}</strong><span>{isAnonymousGuest ? 'Submitted records sync securely.' : isGuestMode ? 'Records stay on this device.' : 'Private information stays in scope.'}</span></div></div>
+          <div className="user-card"><span className="avatar">{user.initials}</span><div><strong>{user.name}</strong><span>{user.roleLabel} workspace</span></div>{hasFirebaseConfig && <button aria-label={isGuestMode ? 'Exit guest mode' : 'Sign out'} className="user-more" onClick={isGuestMode ? handleExitGuest : handleSignOut} title={isGuestMode ? 'Exit guest mode' : 'Sign out'} type="button"><Icon name="logout" size={15} /></button>}</div>
         </div>
       </aside>
 
       <main className="main-content">
         {loadError && <div className="load-error" role="alert"><Icon name="info" size={16} />{loadError}</div>}
-        {view === 'overview' && <OverviewView browserDraft={browserDraft} onContinueDraft={continueBrowserDraft} onStartNew={openNewForm} onViewRecords={() => setView('records')} records={scopedRecords} role={role} user={user} />}
-        {view === 'records' && <RecordsView onDelete={handleDelete} onEdit={openEdit} onExport={() => { exportRecords(scopedRecords); notify('Export started.'); }} onImport={handleImport} onOpen={setSelectedRecord} onStartNew={openNewForm} records={scopedRecords} role={role} search={search} setSearch={setSearch} setStatusFilter={setStatusFilter} statusFilter={statusFilter} />}
-        {view === 'form' && <FormView activeStep={activeStep} editingId={editingId} fieldErrors={fieldErrors} form={form} highestStep={highestStep} isSaving={isSaving} onAddRepeater={handleAddRepeater} onBack={() => setView('overview')} onChange={handleChange} onNext={handleNext} onRemoveRepeater={handleRemoveRepeater} onRepeaterChange={handleRepeaterChange} onSaveDraft={handleSaveDraft} onStepChange={handleStepChange} onSubmit={handleSubmit} role={role} user={user} />}
+        {view === 'overview' && <OverviewView browserDraft={browserDraft} isAnonymousGuest={isAnonymousGuest} isGuest={isGuestMode} onContinueDraft={continueBrowserDraft} onExitGuest={handleExitGuest} onStartNew={openNewForm} onViewRecords={() => setView('records')} records={scopedRecords} role={role} user={user} />}
+        {view === 'records' && <RecordsView isAnonymousGuest={isAnonymousGuest} isGuest={isGuestMode} onDelete={handleDelete} onEdit={openEdit} onExport={() => { exportRecords(scopedRecords); notify('Export started.'); }} onImport={handleImport} onOpen={setSelectedRecord} onStartNew={openNewForm} records={scopedRecords} role={role} search={search} setSearch={setSearch} setStatusFilter={setStatusFilter} statusFilter={statusFilter} />}
+        {view === 'form' && <FormView activeStep={activeStep} editingId={editingId} fieldErrors={fieldErrors} form={form} highestStep={highestStep} isAnonymousGuest={isAnonymousGuest} isGuest={isGuestMode} isSaving={isSaving} onAddRepeater={handleAddRepeater} onBack={() => setView('overview')} onChange={handleChange} onNext={handleNext} onRemoveRepeater={handleRemoveRepeater} onRepeaterChange={handleRepeaterChange} onSaveDraft={handleSaveDraft} onStepChange={handleStepChange} onSubmit={handleSubmit} role={role} user={user} />}
       </main>
 
       <RecordDrawer onClose={() => setSelectedRecord(null)} onEdit={openEdit} record={selectedRecord} />

@@ -10,6 +10,7 @@ import {
 import { db, hasFirebaseConfig } from './firebase.js';
 
 const LOCAL_KEY = 'casebook-insurance-records-v1';
+const GUEST_RECORDS_KEY = 'casebook-guest-records-v1';
 const DRAFT_KEY = 'casebook-insurance-draft-v1';
 const COLLECTION = 'insuranceSubmissions';
 
@@ -154,9 +155,35 @@ function writeLocalRecords(records) {
   return records;
 }
 
+function getGuestRecordsKey(session) {
+  return `${GUEST_RECORDS_KEY}:${session.id}`;
+}
+
+function readGuestRecords(session) {
+  const stored = window.localStorage.getItem(getGuestRecordsKey(session));
+  if (!stored) return [];
+
+  try {
+    const parsed = JSON.parse(stored);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    console.error('Unable to read guest case records.', error);
+    return [];
+  }
+}
+
+function writeGuestRecords(session, records) {
+  window.localStorage.setItem(getGuestRecordsKey(session), JSON.stringify(records));
+  return records;
+}
+
 export async function loadRecords(session = null) {
   if (!hasFirebaseConfig) {
     return readLocalRecords();
+  }
+
+  if (session?.mode === 'guest') {
+    return readGuestRecords(session);
   }
 
   if (!session?.id) {
@@ -179,6 +206,14 @@ export async function saveRecord(record, session = null) {
     return { record, records: writeLocalRecords(next) };
   }
 
+  if (session?.mode === 'guest') {
+    const records = readGuestRecords(session);
+    const next = records.some((item) => item.id === record.id)
+      ? records.map((item) => (item.id === record.id ? record : item))
+      : [record, ...records];
+    return { record, records: writeGuestRecords(session, next) };
+  }
+
   if (!session?.id) {
     throw new Error('Sign in before saving an insurance record.');
   }
@@ -197,6 +232,11 @@ export async function removeRecord(recordId, session = null) {
     return records;
   }
 
+  if (session?.mode === 'guest') {
+    const records = readGuestRecords(session).filter((record) => record.id !== recordId);
+    return writeGuestRecords(session, records);
+  }
+
   if (!session?.id) {
     throw new Error('Sign in before deleting an insurance record.');
   }
@@ -204,12 +244,16 @@ export async function removeRecord(recordId, session = null) {
   return null;
 }
 
-export function saveDraftSnapshot(form) {
-  window.localStorage.setItem(DRAFT_KEY, JSON.stringify(form));
+function getDraftKey(session = null) {
+  return session?.id ? `${DRAFT_KEY}:${session.id}` : DRAFT_KEY;
 }
 
-export function readDraftSnapshot() {
-  const stored = window.localStorage.getItem(DRAFT_KEY);
+export function saveDraftSnapshot(form, session = null) {
+  window.localStorage.setItem(getDraftKey(session), JSON.stringify(form));
+}
+
+export function readDraftSnapshot(session = null) {
+  const stored = window.localStorage.getItem(getDraftKey(session));
   if (!stored) return null;
 
   try {
@@ -220,8 +264,8 @@ export function readDraftSnapshot() {
   }
 }
 
-export function clearDraftSnapshot() {
-  window.localStorage.removeItem(DRAFT_KEY);
+export function clearDraftSnapshot(session = null) {
+  window.localStorage.removeItem(getDraftKey(session));
 }
 
 export function exportRecords(records) {
@@ -234,7 +278,7 @@ export function exportRecords(records) {
   URL.revokeObjectURL(url);
 }
 
-export async function importRecords(file) {
+export async function importRecords(file, session = null) {
   const contents = await file.text();
   const imported = JSON.parse(contents);
   if (!Array.isArray(imported)) {
@@ -243,6 +287,17 @@ export async function importRecords(file) {
 
   if (!hasFirebaseConfig) {
     return writeLocalRecords(imported);
+  }
+
+  if (session?.role !== 'agent') {
+    const ownedRecords = imported.map((record) => ({ ...record, ownerId: session.id }));
+    if (session?.mode === 'guest') {
+      return writeGuestRecords(session, ownedRecords);
+    }
+    for (const record of ownedRecords) {
+      await setDoc(doc(db, COLLECTION, record.id), record);
+    }
+    return ownedRecords;
   }
 
   for (const record of imported) {

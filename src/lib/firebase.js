@@ -1,5 +1,5 @@
 import { getApp, getApps, initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { browserLocalPersistence, getAuth, setPersistence } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
@@ -16,11 +16,13 @@ const hasFirebaseConfig = Object.values(firebaseConfig).every(Boolean);
 let app = null;
 let auth = null;
 let db = null;
+let authPersistenceReady = Promise.resolve();
 
 if (hasFirebaseConfig) {
   app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
   auth = getAuth(app);
+  authPersistenceReady = setPersistence(auth, browserLocalPersistence);
   db = getFirestore(app);
 }
 
-export { app, auth, db, hasFirebaseConfig };
+export { app, auth, authPersistenceReady, db, hasFirebaseConfig };
