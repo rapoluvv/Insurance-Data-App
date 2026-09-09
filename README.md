@@ -160,6 +160,16 @@ Before the first deployment:
 
 Do not unpublish an existing `rapoluvv.github.io` user site first. A project site at `/InsuranceDataBook/` is separate; only replace the existing project deployment if it is already connected to this same repository.
 
+## Install as an app
+
+Databook includes a web manifest, install icons, and a production service worker. After the PWA files are deployed over HTTPS:
+
+- **Android Chrome/Edge:** open the site, then choose **Install app** or **Add to Home screen**.
+- **iPhone/iPad Safari:** open the site, tap **Share**, then choose **Add to Home Screen**.
+- **Desktop Chrome/Edge:** use the install icon in the address bar or the browser menu.
+
+The installed shell can cache the app interface for faster repeat loading. Firebase authentication and Firestore still require a network connection; offline caching does not bypass Firebase access rules.
+
 ### 7. Run the connected app
 
 Stop any running Vite process, then restart it so Vite reads `.env.local`:

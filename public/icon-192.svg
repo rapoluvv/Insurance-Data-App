@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" role="img" aria-labelledby="title">
+  <title>Databook</title>
+  <rect width="192" height="192" rx="42" fill="#17352f"/>
+  <path d="M51 145V75c0-29 20-51 45-51s45 22 45 51v70H51Z" fill="#fbf5e9" fill-opacity=".12" stroke="#c9dccb" stroke-width="6"/>
+  <path d="m54 126 64-96M76 145l70-102" stroke="#c9dccb" stroke-width="6" stroke-linecap="round" opacity=".9"/>
+  <path d="M51 154h90" stroke="#d98c68" stroke-width="9" stroke-linecap="round"/>
+</svg>
