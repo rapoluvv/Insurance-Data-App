@@ -112,7 +112,7 @@ async function toAuthSession(firebaseUser) {
 export function subscribeToAuth(listener) {
   if (!hasFirebaseConfig) return () => {};
 
-  const redirectResult = getRedirectResult(auth);
+  const redirectResult = authPersistenceReady.then(() => getRedirectResult(auth));
 
   return onAuthStateChanged(auth, async (firebaseUser) => {
     if (!firebaseUser) {
