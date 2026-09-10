@@ -1799,23 +1799,25 @@ function App() {
             <Icon name="menu" size={17} />
           </button>
         </div>
-        <div className="sidebar-divider" />
-        <div className="mobile-account-actions" aria-label="Account actions">
-          <button aria-label="Edit profile name" className="user-more" onClick={() => setProfileOpen((current) => !current)} title="Edit profile name" type="button"><Icon name="edit" size={15} /></button>
-          {hasFirebaseConfig && <button aria-label={isGuestMode ? 'Exit guest mode' : 'Sign out'} className="user-more" onClick={isGuestMode ? handleExitGuest : handleSignOut} title={isGuestMode ? 'Exit guest mode' : 'Sign out'} type="button"><Icon name="logout" size={15} /></button>}
-        </div>
-        {!hasFirebaseConfig && <div className="role-switcher">
-          <span className="sidebar-label">Viewing as</span>
-          <div className="role-toggle" role="group" aria-label="Choose workspace role">
-            <button className={role === 'agent' ? 'is-active' : ''} onClick={() => handleRoleChange('agent')} type="button">Agent</button>
-            <button className={role === 'customer' ? 'is-active' : ''} onClick={() => handleRoleChange('customer')} type="button">Customer</button>
+        <div className="sidebar-body">
+          <div className="sidebar-divider" />
+          <div className="mobile-account-actions" aria-label="Account actions">
+            <button aria-label="Edit profile name" className="user-more" onClick={() => setProfileOpen((current) => !current)} title="Edit profile name" type="button"><Icon name="edit" size={15} /></button>
+            {hasFirebaseConfig && <button aria-label={isGuestMode ? 'Exit guest mode' : 'Sign out'} className="user-more" onClick={isGuestMode ? handleExitGuest : handleSignOut} title={isGuestMode ? 'Exit guest mode' : 'Sign out'} type="button"><Icon name="logout" size={15} /></button>}
           </div>
-        </div>}
-        <nav className="main-nav" aria-label="Main navigation">
-          <span className="sidebar-label">Workspace</span>
-          <button className={view === 'overview' ? 'nav-item is-active' : 'nav-item'} onClick={() => navigateToView('overview')} type="button"><Icon name="grid" size={18} /><span>Overview</span><span className="nav-marker" /></button>
-          <button className={view === 'records' ? 'nav-item is-active' : 'nav-item'} onClick={() => navigateToView('records')} type="button"><Icon name="file" size={18} /><span>{role === 'agent' ? 'Submissions' : 'My submissions'}</span><span className="nav-count">{scopedRecords.length}</span></button>
-        </nav>
+          {!hasFirebaseConfig && <div className="role-switcher">
+            <span className="sidebar-label">Viewing as</span>
+            <div className="role-toggle" role="group" aria-label="Choose workspace role">
+              <button className={role === 'agent' ? 'is-active' : ''} onClick={() => handleRoleChange('agent')} type="button">Agent</button>
+              <button className={role === 'customer' ? 'is-active' : ''} onClick={() => handleRoleChange('customer')} type="button">Customer</button>
+            </div>
+          </div>}
+          <nav className="main-nav" aria-label="Main navigation">
+            <span className="sidebar-label">Workspace</span>
+            <button className={view === 'overview' ? 'nav-item is-active' : 'nav-item'} onClick={() => navigateToView('overview')} type="button"><Icon name="grid" size={18} /><span>Overview</span><span className="nav-marker" /></button>
+            <button className={view === 'records' ? 'nav-item is-active' : 'nav-item'} onClick={() => navigateToView('records')} type="button"><Icon name="file" size={18} /><span>{role === 'agent' ? 'Submissions' : 'My submissions'}</span><span className="nav-count">{scopedRecords.length}</span></button>
+          </nav>
+        </div>
         <div className="sidebar-bottom">
           <div className="security-note"><Icon name={isGuestMode ? 'info' : 'shield'} size={17} /><div><strong>{isGuestMode ? 'Guest mode' : 'Role-aware by design'}</strong><span>{isAnonymousGuest ? 'Submitted records sync securely.' : isGuestMode ? 'Records stay on this device.' : 'Private information stays in scope.'}</span></div></div>
           <div className="user-card">
