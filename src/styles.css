@@ -3015,7 +3015,7 @@ button:disabled {
 
 .drawer-layer {
   position: fixed;
-  z-index: 20;
+  z-index: 70;
   inset: 0;
   display: flex;
   justify-content: flex-end;
@@ -3591,6 +3591,7 @@ button:disabled {
     padding: 15px 13px 13px 0;
   }
 
+  .metric:first-child,
   .metric + .metric {
     padding-left: 13px;
   }
@@ -3674,8 +3675,8 @@ button:disabled {
     display: grid;
     grid-template-columns: 28px minmax(0, 1fr) auto;
     gap: 12px;
-    min-height: 100px;
-    padding: 15px 17px;
+    min-height: 82px;
+    padding: 13px 17px;
   }
 
   .record-row .table-cell-check {
@@ -3695,32 +3696,12 @@ button:disabled {
   }
 
   .record-doc {
-    grid-column: 2 / 3;
-    padding-left: 45px;
-    margin-top: 4px;
-    font-size: 9.5px;
-  }
-
-  .record-date {
     display: none;
   }
 
+  .record-date,
   .record-submitted-date {
-    display: block;
-    grid-column: 2 / 3;
-    padding-left: 45px;
-    margin-top: 4px;
-    font-size: 9.5px;
-  }
-
-  .record-mobile-label {
-    display: inline;
-    margin-right: 6px;
-    color: var(--muted);
-    font-family: var(--font-sans);
-    font-size: 8px;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
+    display: none;
   }
 
   .record-row > .status-badge {
