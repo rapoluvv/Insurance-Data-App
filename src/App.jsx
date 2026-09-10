@@ -1056,6 +1056,8 @@ function RecordsView({
   const [sortField, setSortField] = useState('submittedAt');
   const [sortDirection, setSortDirection] = useState('desc');
   const [selectedIds, setSelectedIds] = useState(new Set());
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const filteredRecords = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -1139,6 +1141,20 @@ function RecordsView({
       return 0;
     });
   }, [records, search, statusFilter, sortField, sortDirection]);
+
+  const pageCount = Math.max(1, Math.ceil(filteredRecords.length / pageSize));
+  const currentPage = Math.min(page, pageCount);
+  const firstRecordIndex = filteredRecords.length ? (currentPage - 1) * pageSize : 0;
+  const lastRecordIndex = Math.min(firstRecordIndex + pageSize, filteredRecords.length);
+  const paginatedRecords = filteredRecords.slice(firstRecordIndex, lastRecordIndex);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter, sortField, sortDirection, pageSize]);
+
+  useEffect(() => {
+    setPage((current) => Math.min(current, pageCount));
+  }, [pageCount]);
 
   // Clean up selection when records or filters change
   const allFilteredIds = useMemo(() => filteredRecords.map((r) => r.id), [filteredRecords]);
@@ -1368,7 +1384,7 @@ function RecordsView({
           </button>
           <span className="visually-hidden">Actions</span>
         </div>
-        {filteredRecords.map((record) => {
+        {paginatedRecords.map((record) => {
           const docDate = record.formData?.commencementDate || record.formData?.doc || record.commencementDate;
           const hasSubmittedDate = getDateTimestamp(record.submittedAt) !== null;
           const isChecked = selectedIds.has(record.id);
@@ -1428,6 +1444,50 @@ function RecordsView({
           </div>
         )}
       </section>
+      {filteredRecords.length > 0 && (
+        <nav className="records-pagination" aria-label="Records pagination">
+          <div className="records-pagination-summary">
+            Showing <strong>{firstRecordIndex + 1}-{lastRecordIndex}</strong> of <strong>{filteredRecords.length}</strong>
+          </div>
+          <div className="records-pagination-controls">
+            <label className="records-page-size">
+              <span>Rows</span>
+              <select
+                aria-label="Rows per page"
+                onChange={(event) => setPageSize(Number(event.target.value))}
+                value={pageSize}
+              >
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+              </select>
+            </label>
+            <button
+              aria-label="Previous page"
+              className="button button-quiet button-small pagination-button"
+              disabled={currentPage === 1}
+              onClick={() => setPage((current) => Math.max(1, current - 1))}
+              type="button"
+            >
+              <Icon name="back" size={14} />
+              <span>Previous</span>
+            </button>
+            <span aria-live="polite" className="records-page-status">
+              Page <strong>{currentPage}</strong> of <strong>{pageCount}</strong>
+            </span>
+            <button
+              aria-label="Next page"
+              className="button button-quiet button-small pagination-button"
+              disabled={currentPage === pageCount}
+              onClick={() => setPage((current) => Math.min(pageCount, current + 1))}
+              type="button"
+            >
+              <span>Next</span>
+              <Icon name="chevron" size={14} />
+            </button>
+          </div>
+        </nav>
+      )}
     </div>
   );
 }

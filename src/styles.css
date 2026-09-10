@@ -1915,6 +1915,63 @@ button:disabled {
   overflow: hidden;
 }
 
+.records-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 18px;
+  border: 1px solid var(--line);
+  border-top: 0;
+  color: var(--muted);
+  background: #fbfcf9;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+}
+
+.records-pagination-summary strong,
+.records-page-status strong {
+  color: var(--ink);
+}
+
+.records-pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.records-page-size {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+}
+
+.records-page-size select {
+  height: 30px;
+  min-width: 48px;
+  padding: 0 5px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  color: var(--ink-soft);
+  background: var(--white);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.pagination-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.records-page-status {
+  min-width: 72px;
+  color: var(--muted);
+  text-align: center;
+}
+
 .records-table-head,
 .record-row {
   display: grid;
@@ -3655,6 +3712,18 @@ button:disabled {
 
   .records-meta-note {
     display: none;
+  }
+
+  .records-pagination {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 11px;
+    padding: 13px 17px;
+  }
+
+  .records-pagination-controls {
+    justify-content: space-between;
+    flex-wrap: wrap;
   }
 
   .records-table-head {
