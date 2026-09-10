@@ -2701,6 +2701,16 @@ button:disabled {
   background: var(--moss-wash);
 }
 
+.field input:disabled,
+.field select:disabled,
+.field textarea:disabled {
+  color: var(--muted);
+  background: #edf1ed;
+  border-color: var(--line);
+  cursor: not-allowed;
+  opacity: 1;
+}
+
 .field.has-error input,
 .field.has-error select,
 .field.has-error textarea {

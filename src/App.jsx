@@ -233,20 +233,91 @@ function createInitialForm() {
   };
 }
 
+function digitsOnly(value, maxLength) {
+  return String(value ?? '').replace(/\D/g, '').slice(0, maxLength);
+}
+
+function formatAadhaar(value) {
+  return digitsOnly(value, 12).replace(/(\d{4})(?=\d)/g, '$1 ');
+}
+
+function formatPan(value) {
+  return String(value ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
+}
+
+function formatMobile(value) {
+  return digitsOnly(value, 10);
+}
+
+function formatIfsc(value) {
+  return String(value ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 11);
+}
+
+function formatMicr(value) {
+  return digitsOnly(value, 9);
+}
+
+function isValidAadhaar(value) {
+  return /^\d{4}\s\d{4}\s\d{4}$/.test(String(value || ''));
+}
+
+function isValidPan(value) {
+  return /^[A-Z]{5}[0-9]{4}[A-Z]$/.test(String(value || ''));
+}
+
+function isValidIndianMobile(value) {
+  return /^[6-9]\d{9}$/.test(String(value || ''));
+}
+
+function isValidIfsc(value) {
+  return /^[A-Z]{4}0[A-Z0-9]{6}$/.test(String(value || ''));
+}
+
+function isValidMicr(value) {
+  return /^\d{9}$/.test(String(value || ''));
+}
+
+function normalizeFieldValue(field, value) {
+  switch (field) {
+    case 'aadhaar':
+      return formatAadhaar(value);
+    case 'pan':
+      return formatPan(value);
+    case 'mobileAadhaar':
+    case 'mobile':
+    case 'whatsapp':
+    case 'phone':
+      return formatMobile(value);
+    case 'ifsc':
+      return formatIfsc(value);
+    case 'micr':
+      return formatMicr(value);
+    default:
+      return value;
+  }
+}
+
 function normalizeForm(formData = {}) {
   const initial = createInitialForm();
   return {
     ...initial,
     ...formData,
+    aadhaar: formatAadhaar(formData.aadhaar),
+    pan: formatPan(formData.pan),
+    mobileAadhaar: formatMobile(formData.mobileAadhaar),
+    mobile: formatMobile(formData.mobile),
+    whatsapp: formatMobile(formData.whatsapp),
+    ifsc: formatIfsc(formData.ifsc),
+    micr: formatMicr(formData.micr),
     nominees: Array.isArray(formData.nominees) && formData.nominees.length
       ? formData.nominees.map((n) => ({
           name: n.name || '',
           relation: n.relation || '',
           share: String(n.share ?? '100'),
           dob: n.dob || '',
-          age: n.age || '',
-          aadhaar: n.aadhaar || '',
-          phone: n.phone || n.mobile || '',
+          age: n.dob ? calculateAge(n.dob) : n.age || '',
+          aadhaar: formatAadhaar(n.aadhaar),
+          phone: formatMobile(n.phone || n.mobile),
         }))
       : initial.nominees,
     siblings: Array.isArray(formData.siblings) ? formData.siblings.map((s) => ({
@@ -383,10 +454,10 @@ function validateStep(stepIndex, form) {
     required('gender', 'Choose a gender.');
     required('maritalStatus', 'Choose marital status.');
     required('aadhaar', 'Add the Aadhaar number.');
-    if (form.aadhaar && !/^\d{4}\s?\d{4}\s?\d{4}$/.test(form.aadhaar.trim())) {
+    if (form.aadhaar && !isValidAadhaar(form.aadhaar)) {
       errors.aadhaar = 'Enter a valid 12-digit Aadhaar number.';
     }
-    if (form.pan && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/i.test(form.pan.trim())) {
+    if (form.pan && !isValidPan(form.pan)) {
       errors.pan = 'Enter a valid 10-character PAN (e.g. ABCDE1234F).';
     }
     if ((form.maritalStatus === 'Married' || form.maritalStatus === 'Yes') && !String(form.spouseName || '').trim()) {
@@ -396,14 +467,14 @@ function validateStep(stepIndex, form) {
 
   if (stepIndex === 1) {
     required('mobileAadhaar', 'Add the Aadhaar-linked mobile number.');
-    if (form.mobileAadhaar && !/^\d{10}$/.test(form.mobileAadhaar.replace(/\s/g, ''))) {
-      errors.mobileAadhaar = 'Use a 10-digit mobile number.';
+    if (form.mobileAadhaar && !isValidIndianMobile(form.mobileAadhaar)) {
+      errors.mobileAadhaar = 'Use a 10-digit Indian mobile number beginning with 6-9.';
     }
-    if (form.mobile && !/^\d{10}$/.test(form.mobile.replace(/\s/g, ''))) {
-      errors.mobile = 'Use a 10-digit mobile number.';
+    if (form.mobile && !isValidIndianMobile(form.mobile)) {
+      errors.mobile = 'Use a 10-digit Indian mobile number beginning with 6-9.';
     }
-    if (form.whatsapp && !/^\d{10}$/.test(form.whatsapp.replace(/\s/g, ''))) {
-      errors.whatsapp = 'Use a 10-digit WhatsApp number.';
+    if (form.whatsapp && !isValidIndianMobile(form.whatsapp)) {
+      errors.whatsapp = 'Use a 10-digit Indian mobile number beginning with 6-9.';
     }
     if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
       errors.email = 'Check the email format.';
@@ -435,12 +506,21 @@ function validateStep(stepIndex, form) {
     form.nominees.forEach((nominee, index) => {
       if (!String(nominee.name || '').trim()) errors[`nominee-${index}-name`] = 'Add a nominee name.';
       if (!String(nominee.relation || '').trim()) errors[`nominee-${index}-relation`] = 'Choose a relation.';
+      if (nominee.aadhaar && !isValidAadhaar(nominee.aadhaar)) {
+        errors[`nominee-${index}-aadhaar`] = 'Enter a valid 12-digit Aadhaar number.';
+      }
+      if (nominee.phone && !isValidIndianMobile(nominee.phone)) {
+        errors[`nominee-${index}-phone`] = 'Use a 10-digit Indian mobile number beginning with 6-9.';
+      }
     });
   }
 
   if (stepIndex === 5) {
-    if (form.ifsc && !/^[A-Z]{4}0[A-Z0-9]{6}$/i.test(form.ifsc.trim())) {
+    if (form.ifsc && !isValidIfsc(form.ifsc)) {
       errors.ifsc = 'IFSC code should be 11 characters (e.g. HDFC0001234).';
+    }
+    if (form.micr && !isValidMicr(form.micr)) {
+      errors.micr = 'MICR code should be exactly 9 digits.';
     }
   }
 
@@ -681,6 +761,10 @@ function Field({
   helper = '',
   error = '',
   readOnly = false,
+  disabled = false,
+  inputMode,
+  maxLength,
+  pattern,
   min,
   max,
   step,
@@ -696,11 +780,15 @@ function Field({
         aria-describedby={error ? `${inputId}-error` : helper ? `${inputId}-helper` : undefined}
         aria-invalid={Boolean(error)}
         id={inputId}
+        inputMode={inputMode}
         max={max}
+        maxLength={maxLength}
         min={min}
         name={name}
         onChange={(event) => onChange(name, event.target.value)}
+        pattern={pattern}
         placeholder={placeholder}
+        disabled={disabled}
         readOnly={readOnly}
         step={step}
         type={type}
@@ -737,7 +825,7 @@ function SelectField({ name, label, value, onChange, options, required = false, 
   );
 }
 
-function TextAreaField({ name, label, value, onChange, placeholder = '', helper = '', error = '', readOnly = false, required = false }) {
+function TextAreaField({ name, label, value, onChange, placeholder = '', helper = '', error = '', readOnly = false, disabled = false, required = false }) {
   const inputId = `field-${name}`;
   return (
     <div className={`field field-wide ${error ? 'has-error' : ''}`}>
@@ -748,6 +836,7 @@ function TextAreaField({ name, label, value, onChange, placeholder = '', helper 
       <textarea
         aria-describedby={error ? `${inputId}-error` : helper ? `${inputId}-helper` : undefined}
         aria-invalid={Boolean(error)}
+        disabled={disabled}
         id={inputId}
         name={name}
         onChange={(event) => onChange(name, event.target.value)}
@@ -1549,8 +1638,8 @@ function FormView({
                 <div className="field-grid">
                   <Field error={fieldErrors.fullName} label="Name of Life Assured" name="fullName" onChange={onChange} placeholder="e.g. RAPOLU PRASAD" required value={form.fullName} />
                   <Field label="Proposer Name" name="proposerName" onChange={onChange} placeholder="e.g. SELF or Proposer's name" value={form.proposerName} />
-                  <Field error={fieldErrors.aadhaar} helper="12 digits, stored securely" label="Aadhaar Number" name="aadhaar" onChange={onChange} placeholder="0000 0000 0000" required value={form.aadhaar} />
-                  <Field error={fieldErrors.pan} helper="Format: ABCDE1234F" label="PAN Number" name="pan" onChange={onChange} placeholder="ABCDE1234F" value={form.pan} />
+                  <Field error={fieldErrors.aadhaar} helper="12 digits, grouped as 0000 0000 0000" inputMode="numeric" label="Aadhaar Number" maxLength={14} name="aadhaar" onChange={onChange} pattern="\d{4} \d{4} \d{4}" placeholder="0000 0000 0000" required value={form.aadhaar} />
+                  <Field error={fieldErrors.pan} helper="Format: ABCDE1234F" label="PAN Number" maxLength={10} name="pan" onChange={onChange} pattern="[A-Z]{5}[0-9]{4}[A-Z]" placeholder="ABCDE1234F" value={form.pan} />
                   <Field label="CKYC" name="ckyc" onChange={onChange} placeholder="14-digit CKYC" value={form.ckyc} />
                   <Field label="ABHA" name="abha" onChange={onChange} placeholder="ABHA number" value={form.abha} />
                   <Field label="Father's Name" name="fatherName" onChange={onChange} placeholder="Father's full name" value={form.fatherName} />
@@ -1571,9 +1660,9 @@ function FormView({
               <>
                 <SectionHeading description="Reachability, date of birth, and regulatory address verification." number="02" title="Contact & Address" />
                 <div className="field-grid">
-                  <Field error={fieldErrors.mobileAadhaar} helper="10 digits required" label="Mobile (Aadhaar linked)" name="mobileAadhaar" onChange={onChange} placeholder="10-digit mobile number" required type="tel" value={form.mobileAadhaar} />
-                  <Field error={fieldErrors.mobile} label="Alternate Mobile" name="mobile" onChange={onChange} placeholder="10-digit mobile number" type="tel" value={form.mobile} />
-                  <Field error={fieldErrors.whatsapp} label="WhatsApp Number" name="whatsapp" onChange={onChange} placeholder="10-digit WhatsApp number" type="tel" value={form.whatsapp} />
+                  <Field error={fieldErrors.mobileAadhaar} helper="10 digits, beginning with 6-9" inputMode="numeric" label="Mobile (Aadhaar linked)" maxLength={10} name="mobileAadhaar" onChange={onChange} pattern="[6-9][0-9]{9}" placeholder="10-digit mobile number" required type="tel" value={form.mobileAadhaar} />
+                  <Field error={fieldErrors.mobile} helper="10 digits, beginning with 6-9" inputMode="numeric" label="Alternate Mobile" maxLength={10} name="mobile" onChange={onChange} pattern="[6-9][0-9]{9}" placeholder="10-digit mobile number" type="tel" value={form.mobile} />
+                  <Field error={fieldErrors.whatsapp} helper="10 digits, beginning with 6-9" inputMode="numeric" label="WhatsApp Number" maxLength={10} name="whatsapp" onChange={onChange} pattern="[6-9][0-9]{9}" placeholder="10-digit WhatsApp number" type="tel" value={form.whatsapp} />
                   <Field error={fieldErrors.email} label="Email Address" name="email" onChange={onChange} placeholder="name@example.com" type="email" value={form.email} />
                   <Field error={fieldErrors.dateOfBirth} label="Date of Birth" name="dateOfBirth" onChange={onChange} required type="date" value={form.dateOfBirth} />
                   <Field helper="Calculated from DOB" label="Age (Near LB)" name="age" onChange={onChange} readOnly value={form.age} />
@@ -1584,7 +1673,7 @@ function FormView({
                   <CheckboxField checked={form.corrSameKyc} label="Is the correspondence address same as KYC?" name="corrSameKyc" onChange={onChange} />
                   <div className="field-grid" style={{ marginTop: '1rem' }}>
                     <TextAreaField label="Address as per KYC" name="address" onChange={onChange} placeholder="House no, Street, Locality, City, State, PIN" value={form.address} />
-                    <TextAreaField helper={form.corrSameKyc ? 'Auto-synced from KYC address' : 'Mailing address if different'} label="Correspondence Address" name="corrAddress" onChange={onChange} placeholder="Correspondence address" readOnly={form.corrSameKyc} value={form.corrAddress} />
+                    <TextAreaField disabled={form.corrSameKyc} helper={form.corrSameKyc ? 'Auto-synced from KYC address' : 'Mailing address if different'} label="Correspondence Address" name="corrAddress" onChange={onChange} placeholder="Correspondence address" readOnly={form.corrSameKyc} value={form.corrAddress} />
                   </div>
                   <div className="field-grid compact-grid" style={{ marginTop: '1rem' }}>
                     <Field label="City / Town" name="city" onChange={onChange} placeholder="e.g. Nalgonda" value={form.city} />
@@ -1627,8 +1716,8 @@ function FormView({
               <>
                 <SectionHeading description="Define the policy coverage, premium rhythm, and rider benefits." number="04" title="Proposed Plan" />
                 <div className="field-grid">
-                  <Field error={fieldErrors.planName} label="Plan / Term" name="planName" onChange={onChange} placeholder="e.g. Jeevan Labh (936-25) or 751-15" required value={form.planName} />
-                  <Field label="Policy No / Plan Code" name="planNumber" onChange={onChange} placeholder="Policy number if available" value={form.planNumber} />
+                  <Field error={fieldErrors.planName} label="Plan" name="planName" onChange={onChange} placeholder="e.g. Jeevan Labh (936-25) or 751-15" required value={form.planName} />
+                  <Field label="Policy No" name="planNumber" onChange={onChange} placeholder="Policy number if available" value={form.planNumber} />
                   <Field label="Policy Term (Years)" name="policyTerm" onChange={onChange} placeholder="Years" type="number" value={form.policyTerm} />
                   <Field label="PPT (Premium Paying Term)" name="ppt" onChange={onChange} placeholder="Years" type="number" value={form.ppt} />
                   <SelectField label="Premium Mode" name="premiumMode" onChange={onChange} options={['Yearly', 'Half-Yearly', 'Quarterly', 'NACH', 'Monthly', 'Single']} value={form.premiumMode} />
@@ -1679,9 +1768,9 @@ function FormView({
                         <SelectField error={fieldErrors[`nominee-${index}-relation`]} label="Relation" name={`nominees.${index}.relation`} onChange={(_, value) => onRepeaterChange('nominees', index, 'relation', value)} options={['Spouse', 'Father', 'Mother', 'Son', 'Daughter', 'Brother', 'Sister', 'Other']} required value={nominee.relation} />
                         <Field label="Share %" name={`nominees.${index}.share`} onChange={(_, value) => onRepeaterChange('nominees', index, 'share', value)} placeholder="100" type="number" value={nominee.share} />
                         <Field label="Date of Birth" name={`nominees.${index}.dob`} onChange={(_, value) => onRepeaterChange('nominees', index, 'dob', value)} type="date" value={nominee.dob} />
-                        <Field label="Age" name={`nominees.${index}.age`} onChange={(_, value) => onRepeaterChange('nominees', index, 'age', value)} placeholder="Years" type="number" value={nominee.age} />
-                        <Field label="Nominee Aadhaar" name={`nominees.${index}.aadhaar`} onChange={(_, value) => onRepeaterChange('nominees', index, 'aadhaar', value)} placeholder="12-digit Aadhaar" value={nominee.aadhaar} />
-                        <Field label="Mobile Number" name={`nominees.${index}.phone`} onChange={(_, value) => onRepeaterChange('nominees', index, 'phone', value)} placeholder="10-digit mobile" type="tel" value={nominee.phone} />
+                        <Field helper="Calculated from DOB" label="Age" name={`nominees.${index}.age`} onChange={(_, value) => onRepeaterChange('nominees', index, 'age', value)} placeholder="Years, months, days" readOnly value={nominee.age} />
+                        <Field error={fieldErrors[`nominee-${index}-aadhaar`]} helper="12 digits, grouped as 0000 0000 0000" inputMode="numeric" label="Nominee Aadhaar" maxLength={14} name={`nominees.${index}.aadhaar`} onChange={(_, value) => onRepeaterChange('nominees', index, 'aadhaar', value)} pattern="\d{4} \d{4} \d{4}" placeholder="12-digit Aadhaar" value={nominee.aadhaar} />
+                        <Field error={fieldErrors[`nominee-${index}-phone`]} helper="10 digits, beginning with 6-9" inputMode="numeric" label="Mobile Number" maxLength={10} name={`nominees.${index}.phone`} onChange={(_, value) => onRepeaterChange('nominees', index, 'phone', value)} pattern="[6-9][0-9]{9}" placeholder="10-digit mobile" type="tel" value={nominee.phone} />
                       </div>
                     </div>
                   ))}
@@ -1713,8 +1802,8 @@ function FormView({
                   <SelectField label="Account Type" name="accountType" onChange={onChange} options={['Savings', 'Current', 'Salary']} value={form.accountType} />
                   <Field label="A/C Holder's Name" name="accountHolderName" onChange={onChange} placeholder="Name as in passbook / cheque" value={form.accountHolderName} />
                   <Field label="Account Number" name="accountNumber" onChange={onChange} placeholder="Account number" value={form.accountNumber} />
-                  <Field error={fieldErrors.ifsc} helper="11 characters (e.g. HDFC0001234)" label="IFSC Code" name="ifsc" onChange={onChange} placeholder="HDFC0000000" value={form.ifsc} />
-                  <Field label="MICR Code" name="micr" onChange={onChange} placeholder="9-digit MICR" value={form.micr} />
+                  <Field error={fieldErrors.ifsc} helper="11 characters (e.g. HDFC0001234)" label="IFSC Code" maxLength={11} name="ifsc" onChange={onChange} pattern="[A-Z]{4}0[A-Z0-9]{6}" placeholder="HDFC0000000" value={form.ifsc} />
+                  <Field error={fieldErrors.micr} helper="Exactly 9 digits" inputMode="numeric" label="MICR Code" maxLength={9} name="micr" onChange={onChange} pattern="\d{9}" placeholder="9-digit MICR" value={form.micr} />
                   <TextAreaField label="Bank Branch Address" name="bankAddress" onChange={onChange} placeholder="Branch name, street, city" value={form.bankAddress} />
                 </div>
                 <div className="inline-note"><Icon name="shield" size={16} /><span>Bank fields are treated as sensitive and protected by security rules.</span></div>
@@ -1824,13 +1913,13 @@ function FormView({
                   <Field label="Height (cm)" name="height" onChange={onChange} placeholder="e.g. 165" type="number" value={form.height} />
                   <Field label="Weight (kg)" name="weight" onChange={onChange} placeholder="e.g. 68" type="number" value={form.weight} />
                   <Field label="Abdomen (cm)" name="abdomen" onChange={onChange} placeholder="e.g. 80" type="number" value={form.abdomen} />
-                  <SelectField label="Any Past Operations?" name="operations" onChange={onChange} options={['No', 'Yes']} value={form.operations} />
                 </div>
-                {form.operations === 'Yes' && (
-                  <div className="field-grid" style={{ marginTop: '0.75rem' }}>
+                <div className="field-grid compact-grid" style={{ marginTop: '0.75rem' }}>
+                  <SelectField label="Any Past Operations?" name="operations" onChange={onChange} options={['No', 'Yes']} value={form.operations} />
+                  {form.operations === 'Yes' && (
                     <Field error={fieldErrors.operationsDetails} label="Operation Details" name="operationsDetails" onChange={onChange} placeholder="Details of surgery or operation" value={form.operationsDetails} />
-                  </div>
-                )}
+                  )}
+                </div>
                 <div className="field-grid compact-grid" style={{ marginTop: '0.75rem' }}>
                   <SelectField label="Any Diseases?" name="disease" onChange={onChange} options={['No', 'Yes']} value={form.disease} />
                   {form.disease === 'Yes' && (
@@ -2762,18 +2851,19 @@ function App() {
   }
 
   function handleChange(field, value) {
+    const normalizedValue = normalizeFieldValue(field, value);
     setForm((current) => {
       const updated = {
         ...current,
-        [field]: value,
+        [field]: normalizedValue,
       };
 
       if (field === 'dateOfBirth') {
-        updated.age = calculateAge(value);
+        updated.age = calculateAge(normalizedValue);
       }
 
       if (field === 'corrSameKyc') {
-        if (value) {
+        if (normalizedValue) {
           updated.corrAddress = current.address;
         }
       }
@@ -2792,9 +2882,17 @@ function App() {
   }
 
   function handleRepeaterChange(type, index, field, value) {
+    const normalizedValue = normalizeFieldValue(field, value);
     setForm((current) => ({
       ...current,
-      [type]: current[type].map((item, itemIndex) => (itemIndex === index ? { ...item, [field]: value } : item)),
+      [type]: current[type].map((item, itemIndex) => {
+        if (itemIndex !== index) return item;
+        const updatedItem = { ...item, [field]: normalizedValue };
+        if (type === 'nominees' && field === 'dob') {
+          updatedItem.age = calculateAge(normalizedValue);
+        }
+        return updatedItem;
+      }),
     }));
     setFieldErrors((current) => {
       const next = { ...current };

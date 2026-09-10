@@ -204,6 +204,8 @@ Customers can choose **Continue as guest** on the Firebase sign-in screen. Draft
 - Nine-step guided insurance form with validation and review.
 - Draft saving and resume behavior.
 - Dynamic nominees, siblings, children, and previous-policy rows.
+- Applicant and nominee Aadhaar values are formatted as 12 digits in four-digit groups; PAN, Indian mobile, IFSC, and MICR inputs are normalized and validated to their supported formats and lengths.
+- Nominee age is calculated from date of birth, and a correspondence address linked to KYC is synchronized and locked until unlinked.
 - Submitted/draft record view with search, status filtering, drawer details, edit, delete, JSON export, and JSON import.
 - Responsive case-score layout with keyboard-visible focus states and reduced-motion support.
 - Email/password, Google popup, anonymous guest submission, and role-aware Firebase sessions.
