@@ -6,6 +6,7 @@ import {
   loadRecords,
   readDraftSnapshot,
   removeRecord,
+  removeRecords,
   saveDraftSnapshot,
   saveRecord,
 } from './lib/storage.js';
@@ -1037,17 +1038,29 @@ function RecordsView({
   onEdit,
   onOpen,
   onDelete,
+  onDeleteMultiple,
   onExport,
   onImport,
   onStartNew,
 }) {
-  const [sortField, setSortField] = useState('updatedAt');
+  const [sortField, setSortField] = useState('doc');
   const [sortDirection, setSortDirection] = useState('desc');
+  const [selectedIds, setSelectedIds] = useState(new Set());
 
   const filteredRecords = useMemo(() => {
     const query = search.trim().toLowerCase();
     const matched = records.filter((record) => {
-      const matchesSearch = !query || [record.caseNumber, record.id, record.applicantName, record.planName, record.ownerName, record.submittedByName, record.submittedByEmail]
+      const docVal = record.formData?.commencementDate || record.formData?.doc || record.commencementDate || '';
+      const matchesSearch = !query || [
+        record.caseNumber,
+        record.id,
+        record.applicantName,
+        record.planName,
+        record.ownerName,
+        record.submittedByName,
+        record.submittedByEmail,
+        docVal,
+      ]
         .filter(Boolean)
         .some((value) => value.toLowerCase().includes(query));
       const matchesStatus = statusFilter === 'all' || record.status === statusFilter;
@@ -1059,6 +1072,13 @@ function RecordsView({
       let bVal;
 
       switch (sortField) {
+        case 'doc': {
+          const aDoc = a.formData?.commencementDate || a.formData?.doc || a.commencementDate || '';
+          const bDoc = b.formData?.commencementDate || b.formData?.doc || b.commencementDate || '';
+          aVal = aDoc ? new Date(aDoc).getTime() : 0;
+          bVal = bDoc ? new Date(bDoc).getTime() : 0;
+          break;
+        }
         case 'applicant':
           aVal = (a.applicantName || '').toLowerCase();
           bVal = (b.applicantName || '').toLowerCase();
@@ -1092,12 +1112,46 @@ function RecordsView({
     });
   }, [records, search, statusFilter, sortField, sortDirection]);
 
+  // Clean up selection when records or filters change
+  const allFilteredIds = useMemo(() => filteredRecords.map((r) => r.id), [filteredRecords]);
+  const isAllSelected = allFilteredIds.length > 0 && allFilteredIds.every((id) => selectedIds.has(id));
+  const isSomeSelected = selectedIds.size > 0 && !isAllSelected;
+
+  function handleSelectAll() {
+    if (isAllSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(allFilteredIds));
+    }
+  }
+
+  function handleToggleRow(id, event) {
+    event.stopPropagation();
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }
+
+  function handleBulkDelete() {
+    if (selectedIds.size === 0) return;
+    const count = selectedIds.size;
+    const confirmed = window.confirm(`Permanently delete ${count} selected ${count === 1 ? 'record' : 'records'}? This cannot be undone.`);
+    if (!confirmed) return;
+    onDeleteMultiple?.(Array.from(selectedIds));
+    setSelectedIds(new Set());
+  }
+
   function handleSortToggle(field) {
     if (sortField === field) {
       setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
     } else {
       setSortField(field);
-      // Default to ascending for text/names, descending for dates and financial amounts
       setSortDirection(field === 'applicant' || field === 'planName' || field === 'status' ? 'asc' : 'desc');
     }
   }
@@ -1129,7 +1183,7 @@ function RecordsView({
           <input
             id="record-search"
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search name, case ID, or plan"
+            placeholder="Search name, case ID, plan, or DOC"
             type="search"
             value={search}
           />
@@ -1157,8 +1211,10 @@ function RecordsView({
               }}
               value={`${sortField}:${sortDirection}`}
             >
-              <option value="updatedAt:desc">Newest first</option>
-              <option value="updatedAt:asc">Oldest first</option>
+              <option value="doc:desc">DOC (Latest first)</option>
+              <option value="doc:asc">DOC (Earliest first)</option>
+              <option value="updatedAt:desc">Updated (Newest first)</option>
+              <option value="updatedAt:asc">Updated (Oldest first)</option>
               <option value="applicant:asc">Applicant (A-Z)</option>
               <option value="applicant:desc">Applicant (Z-A)</option>
               <option value="premium:desc">Premium (High to Low)</option>
@@ -1181,6 +1237,32 @@ function RecordsView({
         </div>
       </div>
 
+      {selectedIds.size > 0 && (
+        <div className="bulk-action-bar" role="region" aria-label="Bulk actions">
+          <div className="bulk-action-info">
+            <span className="bulk-count">{selectedIds.size}</span>
+            <span>{selectedIds.size === 1 ? 'record selected' : 'records selected'}</span>
+          </div>
+          <div className="bulk-action-buttons">
+            <button
+              className="button button-secondary button-small"
+              onClick={() => setSelectedIds(new Set())}
+              type="button"
+            >
+              Clear selection
+            </button>
+            <button
+              className="button button-danger button-small"
+              onClick={handleBulkDelete}
+              type="button"
+            >
+              <Icon name="trash" size={15} />
+              Delete selected ({selectedIds.size})
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="records-meta">
         <span><strong>{filteredRecords.length}</strong> {filteredRecords.length === 1 ? 'record' : 'records'} in view</span>
         <span className="records-meta-note">{isGuest ? isAnonymousGuest ? 'Guest scope · synced submissions' : 'Guest scope · this browser only' : role === 'agent' ? 'Agent scope · all customers' : 'Customer scope · private to you'}</span>
@@ -1188,6 +1270,18 @@ function RecordsView({
 
       <section className="surface-panel table-panel" aria-label="Insurance records">
         <div className="records-table-head">
+          <div className="table-cell-check">
+            <input
+              aria-label="Select all records in view"
+              checked={isAllSelected}
+              className="table-checkbox"
+              onChange={handleSelectAll}
+              ref={(el) => {
+                if (el) el.indeterminate = isSomeSelected;
+              }}
+              type="checkbox"
+            />
+          </div>
           <button
             className={`table-head-btn ${sortField === 'applicant' ? 'is-sorted' : ''}`}
             onClick={() => handleSortToggle('applicant')}
@@ -1205,6 +1299,15 @@ function RecordsView({
           >
             <span>Plan & premium</span>
             {renderSortIcon('premium')}
+          </button>
+          <button
+            className={`table-head-btn ${sortField === 'doc' ? 'is-sorted' : ''}`}
+            onClick={() => handleSortToggle('doc')}
+            title="Sort by Date of Commencement"
+            type="button"
+          >
+            <span>Date of Commencement</span>
+            {renderSortIcon('doc')}
           </button>
           <button
             className={`table-head-btn ${sortField === 'updatedAt' ? 'is-sorted' : ''}`}
@@ -1226,27 +1329,47 @@ function RecordsView({
           </button>
           <span className="visually-hidden">Actions</span>
         </div>
-        {filteredRecords.map((record) => (
-          <div className="record-row" key={record.id}>
-            <button className="record-person" onClick={() => onOpen(record)} type="button">
-              <span className="person-mark">{(record.applicantName || '?').slice(0, 1).toUpperCase()}</span>
-              <span>
-                <strong>{record.applicantName || 'Unnamed applicant'}</strong>
-                <small>{record.caseNumber || record.id} · {role === 'agent' ? `Submitted by ${record.submittedByName || record.ownerName || 'Customer'}` : 'Your case'}</small>
-              </span>
-            </button>
-            <div className="record-plan">
-              <strong>{record.planName || 'Plan not selected'}</strong>
-              <small>{formatMoney(record.premium)} / year · {formatMoney(record.sumAssured)} cover</small>
+        {filteredRecords.map((record) => {
+          const docDate = record.formData?.commencementDate || record.formData?.doc || record.commencementDate;
+          const isChecked = selectedIds.has(record.id);
+          return (
+            <div className={`record-row ${isChecked ? 'is-row-selected' : ''}`} key={record.id}>
+              <div className="table-cell-check">
+                <input
+                  aria-label={`Select ${record.applicantName || 'record'}`}
+                  checked={isChecked}
+                  className="table-checkbox"
+                  onChange={(e) => handleToggleRow(record.id, e)}
+                  type="checkbox"
+                />
+              </div>
+              <button className="record-person" onClick={() => onOpen(record)} type="button">
+                <span className="person-mark">{(record.applicantName || '?').slice(0, 1).toUpperCase()}</span>
+                <span>
+                  <strong>{record.applicantName || 'Unnamed applicant'}</strong>
+                  <small>{record.caseNumber || record.id} · {role === 'agent' ? `Submitted by ${record.submittedByName || record.ownerName || 'Customer'}` : 'Your case'}</small>
+                </span>
+              </button>
+              <div className="record-plan">
+                <strong>{record.planName || 'Plan not selected'}</strong>
+                <small>{formatMoney(record.premium)} / year · {formatMoney(record.sumAssured)} cover</small>
+              </div>
+              <div className="record-doc">
+                {docDate ? (
+                  <span>{formatDate(docDate)}</span>
+                ) : (
+                  <span className="record-doc-empty">Not specified</span>
+                )}
+              </div>
+              <span className="record-date">{formatDate(record.updatedAt)}</span>
+              <StatusBadge status={record.status} />
+              <div className="row-actions">
+                <button aria-label={`Edit ${record.applicantName || 'record'}`} className="icon-button" onClick={() => onEdit(record)} title="Edit record" type="button"><Icon name="edit" size={16} /></button>
+                <button aria-label={`Delete ${record.applicantName || 'record'}`} className="icon-button icon-danger" onClick={() => onDelete(record)} title="Delete record" type="button"><Icon name="trash" size={16} /></button>
+              </div>
             </div>
-            <span className="record-date">{formatDate(record.updatedAt)}</span>
-            <StatusBadge status={record.status} />
-            <div className="row-actions">
-              <button aria-label={`Edit ${record.applicantName || 'record'}`} className="icon-button" onClick={() => onEdit(record)} title="Edit record" type="button"><Icon name="edit" size={16} /></button>
-              <button aria-label={`Delete ${record.applicantName || 'record'}`} className="icon-button icon-danger" onClick={() => onDelete(record)} title="Delete record" type="button"><Icon name="trash" size={16} /></button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
         {!filteredRecords.length && (
           <div className="empty-state">
             <span className="empty-icon"><Icon name="search" size={20} /></span>
@@ -2584,6 +2707,21 @@ function App() {
     }
   }
 
+  async function handleDeleteMultiple(idsToDelete) {
+    if (!idsToDelete || idsToDelete.length === 0) return;
+    try {
+      await removeRecords(idsToDelete, authSession.user);
+      const idSet = new Set(idsToDelete);
+      setRecords((current) => current.filter((item) => !idSet.has(item.id)));
+      if (selectedRecord && idSet.has(selectedRecord.id)) {
+        setSelectedRecord(null);
+      }
+      notify(`${idsToDelete.length} ${idsToDelete.length === 1 ? 'record was' : 'records were'} deleted.`);
+    } catch (error) {
+      notify(error.message || 'Failed to delete selected records.', 'error');
+    }
+  }
+
   function handleImport(event) {
     const [file] = event.target.files || [];
     if (!file) return;
@@ -2680,7 +2818,25 @@ function App() {
         </div>
         {loadError && <div className="load-error" role="alert"><Icon name="info" size={16} />{loadError}</div>}
         {view === 'overview' && <OverviewView browserDraft={browserDraft} currentTime={currentTime} isAnonymousGuest={isAnonymousGuest} isGuest={isGuestMode} onContinueDraft={continueBrowserDraft} onCopyInviteLink={handleCopyInviteLink} onExitGuest={handleExitGuest} onStartNew={openNewForm} onViewRecords={() => setView('records')} records={scopedRecords} role={role} user={user} />}
-        {view === 'records' && <RecordsView isAnonymousGuest={isAnonymousGuest} isGuest={isGuestMode} onDelete={handleDelete} onEdit={openEdit} onExport={() => { exportRecords(scopedRecords); notify('Export started.'); }} onImport={handleImport} onOpen={setSelectedRecord} onStartNew={openNewForm} records={scopedRecords} role={role} search={search} setSearch={setSearch} setStatusFilter={setStatusFilter} statusFilter={statusFilter} />}
+        {view === 'records' && (
+          <RecordsView
+            isAnonymousGuest={isAnonymousGuest}
+            isGuest={isGuestMode}
+            onDelete={handleDelete}
+            onDeleteMultiple={handleDeleteMultiple}
+            onEdit={openEdit}
+            onExport={() => { exportRecords(scopedRecords); notify('Export started.'); }}
+            onImport={handleImport}
+            onOpen={setSelectedRecord}
+            onStartNew={openNewForm}
+            records={scopedRecords}
+            role={role}
+            search={search}
+            setSearch={setSearch}
+            setStatusFilter={setStatusFilter}
+            statusFilter={statusFilter}
+          />
+        )}
         {view === 'form' && <FormView activeStep={activeStep} editingId={editingId} fieldErrors={fieldErrors} form={form} highestStep={highestStep} isAnonymousGuest={isAnonymousGuest} isGuest={isGuestMode} isSaving={isSaving} onAddRepeater={handleAddRepeater} onBack={() => setView('overview')} onChange={handleChange} onNext={handleNext} onRemoveRepeater={handleRemoveRepeater} onRepeaterChange={handleRepeaterChange} onSaveDraft={handleSaveDraft} onStepChange={handleStepChange} onSubmit={handleSubmit} role={role} user={user} />}
       </main>
 

@@ -364,21 +364,30 @@ export async function saveRecord(record, session = null) {
 }
 
 export async function removeRecord(recordId, session = null) {
+  return removeRecords([recordId], session);
+}
+
+export async function removeRecords(recordIds, session = null) {
+  if (!Array.isArray(recordIds) || recordIds.length === 0) return [];
+
+  const idSet = new Set(recordIds);
+
   if (!hasFirebaseConfig) {
-    const records = readLocalRecords().filter((record) => record.id !== recordId);
+    const records = readLocalRecords().filter((record) => !idSet.has(record.id));
     writeLocalRecords(records);
     return records;
   }
 
   if (session?.mode === 'guest') {
-    const records = readGuestRecords(session).filter((record) => record.id !== recordId);
+    const records = readGuestRecords(session).filter((record) => !idSet.has(record.id));
     return writeGuestRecords(session, records);
   }
 
   if (!session?.id) {
-    throw new Error('Sign in before deleting an insurance record.');
+    throw new Error('Sign in before deleting insurance records.');
   }
-  await deleteDoc(doc(db, COLLECTION, recordId));
+
+  await Promise.all(recordIds.map((id) => deleteDoc(doc(db, COLLECTION, id))));
   return null;
 }
 
