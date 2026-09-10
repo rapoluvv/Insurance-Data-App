@@ -490,6 +490,9 @@ function Icon({ name, size = 18 }) {
     menu: <path d="M4 7h16M4 12h16M4 17h16" />,
     filter: <><path d="M4 6h16M7 12h10M10 18h4" /></>,
     info: <><circle cx="12" cy="12" r="8.5" /><path d="M12 10.5v5M12 7.5h.01" /></>,
+    sort: <><path d="m8 9 4-4 4 4M16 15l-4 4-4-4" /></>,
+    sortUp: <path d="m8 14 4-4 4 4" />,
+    sortDown: <path d="m8 10 4-4 4 4" style={{ transform: 'rotate(180deg)', transformOrigin: 'center' }} />,
   };
 
   return (
@@ -1038,14 +1041,73 @@ function RecordsView({
   onImport,
   onStartNew,
 }) {
-  const filteredRecords = records.filter((record) => {
+  const [sortField, setSortField] = useState('updatedAt');
+  const [sortDirection, setSortDirection] = useState('desc');
+
+  const filteredRecords = useMemo(() => {
     const query = search.trim().toLowerCase();
-    const matchesSearch = !query || [record.caseNumber, record.id, record.applicantName, record.planName, record.ownerName, record.submittedByName, record.submittedByEmail]
-      .filter(Boolean)
-      .some((value) => value.toLowerCase().includes(query));
-    const matchesStatus = statusFilter === 'all' || record.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+    const matched = records.filter((record) => {
+      const matchesSearch = !query || [record.caseNumber, record.id, record.applicantName, record.planName, record.ownerName, record.submittedByName, record.submittedByEmail]
+        .filter(Boolean)
+        .some((value) => value.toLowerCase().includes(query));
+      const matchesStatus = statusFilter === 'all' || record.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+
+    return [...matched].sort((a, b) => {
+      let aVal;
+      let bVal;
+
+      switch (sortField) {
+        case 'applicant':
+          aVal = (a.applicantName || '').toLowerCase();
+          bVal = (b.applicantName || '').toLowerCase();
+          break;
+        case 'premium':
+          aVal = Number(a.premium) || 0;
+          bVal = Number(b.premium) || 0;
+          break;
+        case 'sumAssured':
+          aVal = Number(a.sumAssured) || 0;
+          bVal = Number(b.sumAssured) || 0;
+          break;
+        case 'planName':
+          aVal = (a.planName || '').toLowerCase();
+          bVal = (b.planName || '').toLowerCase();
+          break;
+        case 'status':
+          aVal = (a.status || '').toLowerCase();
+          bVal = (b.status || '').toLowerCase();
+          break;
+        case 'updatedAt':
+        default:
+          aVal = new Date(a.updatedAt || a.submittedAt || 0).getTime();
+          bVal = new Date(b.updatedAt || b.submittedAt || 0).getTime();
+          break;
+      }
+
+      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [records, search, statusFilter, sortField, sortDirection]);
+
+  function handleSortToggle(field) {
+    if (sortField === field) {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      // Default to ascending for text/names, descending for dates and financial amounts
+      setSortDirection(field === 'applicant' || field === 'planName' || field === 'status' ? 'asc' : 'desc');
+    }
+  }
+
+  function renderSortIcon(field) {
+    if (sortField !== field) {
+      return <Icon name="sort" size={13} />;
+    }
+    return sortDirection === 'asc' ? <Icon name="sortUp" size={13} /> : <Icon name="sortDown" size={13} />;
+  }
 
   return (
     <div className="page-view records-view">
@@ -1082,6 +1144,31 @@ function RecordsView({
               <option value="draft">Drafts</option>
             </select>
           </div>
+
+          <div className="filter-select sort-select">
+            <Icon name="sort" size={15} />
+            <label className="visually-hidden" htmlFor="sort-select-input">Sort records</label>
+            <select
+              id="sort-select-input"
+              onChange={(e) => {
+                const [f, d] = e.target.value.split(':');
+                setSortField(f);
+                setSortDirection(d);
+              }}
+              value={`${sortField}:${sortDirection}`}
+            >
+              <option value="updatedAt:desc">Newest first</option>
+              <option value="updatedAt:asc">Oldest first</option>
+              <option value="applicant:asc">Applicant (A-Z)</option>
+              <option value="applicant:desc">Applicant (Z-A)</option>
+              <option value="premium:desc">Premium (High to Low)</option>
+              <option value="premium:asc">Premium (Low to High)</option>
+              <option value="sumAssured:desc">Sum Assured (High to Low)</option>
+              <option value="sumAssured:asc">Sum Assured (Low to High)</option>
+              <option value="status:asc">Status</option>
+            </select>
+          </div>
+
           <button className="button button-quiet" onClick={onExport} type="button">
             <Icon name="download" size={16} />
             Export
@@ -1101,10 +1188,42 @@ function RecordsView({
 
       <section className="surface-panel table-panel" aria-label="Insurance records">
         <div className="records-table-head">
-          <span>Applicant</span>
-          <span>Plan & premium</span>
-          <span>Updated</span>
-          <span>Status</span>
+          <button
+            className={`table-head-btn ${sortField === 'applicant' ? 'is-sorted' : ''}`}
+            onClick={() => handleSortToggle('applicant')}
+            title="Sort by Applicant"
+            type="button"
+          >
+            <span>Applicant</span>
+            {renderSortIcon('applicant')}
+          </button>
+          <button
+            className={`table-head-btn ${sortField === 'premium' ? 'is-sorted' : ''}`}
+            onClick={() => handleSortToggle('premium')}
+            title="Sort by Plan & Premium"
+            type="button"
+          >
+            <span>Plan & premium</span>
+            {renderSortIcon('premium')}
+          </button>
+          <button
+            className={`table-head-btn ${sortField === 'updatedAt' ? 'is-sorted' : ''}`}
+            onClick={() => handleSortToggle('updatedAt')}
+            title="Sort by Date Updated"
+            type="button"
+          >
+            <span>Updated</span>
+            {renderSortIcon('updatedAt')}
+          </button>
+          <button
+            className={`table-head-btn ${sortField === 'status' ? 'is-sorted' : ''}`}
+            onClick={() => handleSortToggle('status')}
+            title="Sort by Status"
+            type="button"
+          >
+            <span>Status</span>
+            {renderSortIcon('status')}
+          </button>
           <span className="visually-hidden">Actions</span>
         </div>
         {filteredRecords.map((record) => (
