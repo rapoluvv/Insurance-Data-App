@@ -437,6 +437,11 @@ export function exportRecords(records) {
   URL.revokeObjectURL(url);
 }
 
+function extractLegacyPolicyTerm(planTerm) {
+  const match = String(planTerm || '').match(/[-\u2013\u2014]\s*(\d+)\s*$/);
+  return match ? match[1] : '';
+}
+
 export function convertLegacyRecordToDatabook(item, index = 0, session = null) {
   if (item && item.formData && (item.id || item.applicantName)) {
     return { ...item, importOrder: index };
@@ -529,6 +534,9 @@ export function convertLegacyRecordToDatabook(item, index = 0, session = null) {
 
   const corrSameKyc = item.corr_same_kyc === true || item.corr_same_kyc === 'true' || item.corr_same_kyc === 'on';
 
+  const legacyPlanName = item.plan_term || item.planName || '';
+  const legacyPolicyTerm = extractLegacyPolicyTerm(legacyPlanName) || item.policyTerm || '';
+
   const formData = {
     fullName: item.name_of_la || item.fullName || '',
     proposerName: item.proposer || item.proposerName || '',
@@ -571,9 +579,9 @@ export function convertLegacyRecordToDatabook(item, index = 0, session = null) {
     husbandOccupation: item.husband_occupation || item.husbandOccupation || '',
     husbandAnnualIncome: item.husband_annual_income ? String(item.husband_annual_income).replace(/[^\d]/g, '') : (item.husbandAnnualIncome || ''),
 
-    planName: item.plan_term || item.planName || '',
+    planName: legacyPlanName,
     planNumber: item.policy_no || item.planNumber || '',
-    policyTerm: item.ppt || item.policyTerm || '',
+    policyTerm: legacyPolicyTerm,
     ppt: item.ppt || '',
     premiumMode: item.mode || item.premiumMode || 'Yearly',
     sumAssured: item.sum_assured || item.sumAssured || '',

@@ -130,6 +130,8 @@ The records table sorts by `submittedAt` by default. Legacy JSON imports that do
 
 Search, status filters, and sorting are applied before pagination. The table shows 10 records per page by default, with 25 and 50 row options; bulk selection remains available across pages.
 
+For legacy imports, the trailing number in `plan_term` (for example, `736-15` -> policy term `15`) maps to `policyTerm`; the legacy `ppt` value remains mapped separately to `ppt`.
+
 Record details in the drawer are sparse by design: fields without a value and empty sections are omitted instead of showing placeholder text. Saved defaults and explicit answers remain visible.
 
 New records use a globally unique, date-based case number such as `CASE-20260909-A7F2` plus a separate random Firestore document ID. This prevents two customers submitting at the same time—or two customers seeing only their own records—from accidentally targeting the same document. Existing legacy IDs remain unchanged. A future trusted server-side counter can provide strictly sequential numbers if that becomes a business requirement.
