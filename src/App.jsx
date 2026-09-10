@@ -132,40 +132,92 @@ function createInitialForm() {
     age: '',
     aadhaar: '',
     pan: '',
+    ckyc: '',
+    abha: '',
+    fatherName: '',
+    motherName: '',
     gender: '',
     maritalStatus: '',
+    spouseName: '',
+    marriageDate: '',
+
+    mobileAadhaar: '',
     mobile: '',
+    whatsapp: '',
     email: '',
+    birthPlace: '',
+    residentialStatus: 'Resident Indian',
+    corrSameKyc: false,
     address: '',
+    corrAddress: '',
     city: '',
     state: '',
     pincode: '',
-    residentialStatus: '',
+
     education: '',
     occupation: '',
-    annualIncome: '',
+    typeOfDuty: '',
     employer: '',
+    since: '',
+    totalExperience: '',
+    annualIncome: '',
+    lyIncome1: '',
+    lyIncome2: '',
+    lyIncome3: '',
+    husbandOccupation: '',
+    husbandAnnualIncome: '',
+
     planName: '',
     planNumber: '',
     policyTerm: '',
+    ppt: '',
+    premiumMode: 'Yearly',
     sumAssured: '',
+    accidentalBenefit: '',
+    termRider: 'No',
     premium: '',
-    premiumMode: 'Annual',
+    datingBack: 'No',
+    datingBackDate: '',
+    pwb: 'No',
+    bocNumber: '',
+    bocDate: '',
+    bocAmount: '',
     commencementDate: '',
-    nominees: [{ name: '', relation: '', share: '100', age: '', phone: '' }],
+
+    nominees: [{ name: '', relation: '', share: '100', dob: '', age: '', aadhaar: '', phone: '' }],
+    appointeeName: '',
+    appointeeRelation: '',
+    appointeeAge: '',
+
     bankName: '',
     accountType: '',
+    accountHolderName: '',
+    bankAddress: '',
     accountNumber: '',
     ifsc: '',
     micr: '',
+
     fatherAge: '',
-    fatherHealth: '',
+    fatherHealth: 'Good',
+    fatherDiedAge: '',
+    fatherDiedYear: '',
+    fatherDiedCause: '',
+
     motherAge: '',
-    motherHealth: '',
+    motherHealth: 'Good',
+    motherDiedAge: '',
+    motherDiedYear: '',
+    motherDiedCause: '',
+
     spouseAge: '',
-    spouseHealth: '',
+    spouseHealth: 'Good',
+    spouseDiedAge: '',
+    spouseDiedYear: '',
+    spouseDiedCause: '',
+
     siblings: [],
     children: [],
+
     height: '',
     weight: '',
     abdomen: '',
@@ -175,6 +227,7 @@ function createInitialForm() {
     diseaseDetails: '',
     pregnancy: 'No',
     lastDelivery: '',
+
     previousPolicies: [],
   };
 }
@@ -185,11 +238,44 @@ function normalizeForm(formData = {}) {
     ...initial,
     ...formData,
     nominees: Array.isArray(formData.nominees) && formData.nominees.length
-      ? formData.nominees
+      ? formData.nominees.map((n) => ({
+          name: n.name || '',
+          relation: n.relation || '',
+          share: String(n.share ?? '100'),
+          dob: n.dob || '',
+          age: n.age || '',
+          aadhaar: n.aadhaar || '',
+          phone: n.phone || n.mobile || '',
+        }))
       : initial.nominees,
-    siblings: Array.isArray(formData.siblings) ? formData.siblings : [],
-    children: Array.isArray(formData.children) ? formData.children : [],
-    previousPolicies: Array.isArray(formData.previousPolicies) ? formData.previousPolicies : [],
+    siblings: Array.isArray(formData.siblings) ? formData.siblings.map((s) => ({
+      relation: s.relation || 'Brother',
+      age: s.age || '',
+      health: s.health || 'Good',
+      diedAge: s.diedAge || '',
+      diedYear: s.diedYear || '',
+      diedCause: s.diedCause || '',
+    })) : [],
+    children: Array.isArray(formData.children) ? formData.children.map((c) => ({
+      age: c.age || '',
+      health: c.health || 'Good',
+      diedAge: c.diedAge || '',
+      diedYear: c.diedYear || '',
+      diedCause: c.diedCause || '',
+    })) : [],
+    previousPolicies: Array.isArray(formData.previousPolicies) ? formData.previousPolicies.map((p) => ({
+      policyNumber: p.policyNumber || '',
+      branch: p.branch || '',
+      planTerm: p.planTerm || '',
+      sumAssured: p.sumAssured || '',
+      premium: p.premium || '',
+      mode: p.mode || 'Yearly',
+      accidentalBenefit: p.accidentalBenefit || '',
+      commencementDate: p.commencementDate || '',
+      rateAccepted: p.rateAccepted || 'Ordinary Rate',
+      medicalType: p.medicalType || 'Medical',
+      inforce: p.inforce || 'Yes',
+    })) : [],
   };
 }
 
@@ -199,12 +285,24 @@ function calculateAge(dateValue) {
   if (Number.isNaN(birthDate.getTime())) return '';
 
   const today = new Date();
-  let age = today.getFullYear() - birthDate.getFullYear();
-  const monthDelta = today.getMonth() - birthDate.getMonth();
-  if (monthDelta < 0 || (monthDelta === 0 && today.getDate() < birthDate.getDate())) {
-    age -= 1;
+  let years = today.getFullYear() - birthDate.getFullYear();
+  let months = today.getMonth() - birthDate.getMonth();
+  let days = today.getDate() - birthDate.getDate();
+
+  if (days < 0) {
+    months -= 1;
+    const lastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+    days += lastMonth.getDate();
   }
-  return age > 0 ? String(age) : '';
+  if (months < 0) {
+    years -= 1;
+    months += 12;
+  }
+
+  if (years < 0) return '';
+  if (years === 0 && months === 0) return `${days} Days`;
+  if (years === 0) return `${months} Months, ${days} Days`;
+  return `${years} Years, ${months} Months, ${days} Days`;
 }
 
 function formatMoney(value) {
@@ -253,6 +351,7 @@ function createCaseNumber() {
 function hasFormContent(form) {
   return Boolean(
     form.fullName ||
+    form.mobileAadhaar ||
     form.mobile ||
     form.email ||
     form.occupation ||
@@ -270,19 +369,35 @@ function validateStep(stepIndex, form) {
 
   if (stepIndex === 0) {
     required('fullName', 'Add the applicant name.');
-    required('dateOfBirth', 'Add the date of birth.');
     required('gender', 'Choose a gender.');
+    required('maritalStatus', 'Choose marital status.');
+    required('aadhaar', 'Add the Aadhaar number.');
+    if (form.aadhaar && !/^\d{4}\s?\d{4}\s?\d{4}$/.test(form.aadhaar.trim())) {
+      errors.aadhaar = 'Enter a valid 12-digit Aadhaar number.';
+    }
+    if (form.pan && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/i.test(form.pan.trim())) {
+      errors.pan = 'Enter a valid 10-character PAN (e.g. ABCDE1234F).';
+    }
+    if ((form.maritalStatus === 'Married' || form.maritalStatus === 'Yes') && !String(form.spouseName || '').trim()) {
+      errors.spouseName = 'Add the spouse name.';
+    }
   }
 
   if (stepIndex === 1) {
-    required('mobile', 'Add a mobile number.');
-    required('email', 'Add an email address.');
+    required('mobileAadhaar', 'Add the Aadhaar-linked mobile number.');
+    if (form.mobileAadhaar && !/^\d{10}$/.test(form.mobileAadhaar.replace(/\s/g, ''))) {
+      errors.mobileAadhaar = 'Use a 10-digit mobile number.';
+    }
     if (form.mobile && !/^\d{10}$/.test(form.mobile.replace(/\s/g, ''))) {
       errors.mobile = 'Use a 10-digit mobile number.';
     }
-    if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+    if (form.whatsapp && !/^\d{10}$/.test(form.whatsapp.replace(/\s/g, ''))) {
+      errors.whatsapp = 'Use a 10-digit WhatsApp number.';
+    }
+    if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
       errors.email = 'Check the email format.';
     }
+    required('dateOfBirth', 'Add the date of birth.');
   }
 
   if (stepIndex === 2) {
@@ -291,23 +406,55 @@ function validateStep(stepIndex, form) {
   }
 
   if (stepIndex === 3) {
-    required('planName', 'Add a plan name.');
+    required('planName', 'Add a plan name / term.');
     required('sumAssured', 'Add the sum assured.');
     required('premium', 'Add the premium.');
-    required('commencementDate', 'Choose a commencement date.');
+    if (form.datingBack === 'Yes' && !String(form.datingBackDate || '').trim()) {
+      errors.datingBackDate = 'Add the dating back date.';
+    }
   }
 
   if (stepIndex === 4) {
     const shareTotal = form.nominees.reduce((total, nominee) => total + Number(nominee.share || 0), 0);
     if (!form.nominees.length) {
       errors.nominees = 'Add at least one nominee.';
-    } else if (shareTotal !== 100) {
+    } else if (Math.round(shareTotal) !== 100) {
       errors.nominees = `Nominee shares currently total ${shareTotal}%. They must total 100%.`;
     }
     form.nominees.forEach((nominee, index) => {
       if (!String(nominee.name || '').trim()) errors[`nominee-${index}-name`] = 'Add a nominee name.';
       if (!String(nominee.relation || '').trim()) errors[`nominee-${index}-relation`] = 'Choose a relation.';
     });
+  }
+
+  if (stepIndex === 5) {
+    if (form.ifsc && !/^[A-Z]{4}0[A-Z0-9]{6}$/i.test(form.ifsc.trim())) {
+      errors.ifsc = 'IFSC code should be 11 characters (e.g. HDFC0001234).';
+    }
+  }
+
+  if (stepIndex === 6) {
+    if (form.fatherHealth === 'Dead') {
+      if (!String(form.fatherDiedAge || '').trim()) errors.fatherDiedAge = 'Enter age at death.';
+      if (!String(form.fatherDiedYear || '').trim()) errors.fatherDiedYear = 'Enter death year.';
+      if (!String(form.fatherDiedCause || '').trim()) errors.fatherDiedCause = 'Enter cause of death.';
+    }
+    if (form.motherHealth === 'Dead') {
+      if (!String(form.motherDiedAge || '').trim()) errors.motherDiedAge = 'Enter age at death.';
+      if (!String(form.motherDiedYear || '').trim()) errors.motherDiedYear = 'Enter death year.';
+      if (!String(form.motherDiedCause || '').trim()) errors.motherDiedCause = 'Enter cause of death.';
+    }
+    if ((form.maritalStatus === 'Married' || form.maritalStatus === 'Yes') && form.spouseHealth === 'Dead') {
+      if (!String(form.spouseDiedAge || '').trim()) errors.spouseDiedAge = 'Enter age at death.';
+      if (!String(form.spouseDiedYear || '').trim()) errors.spouseDiedYear = 'Enter death year.';
+      if (!String(form.spouseDiedCause || '').trim()) errors.spouseDiedCause = 'Enter cause of death.';
+    }
+    if (form.operations === 'Yes' && !String(form.operationsDetails || '').trim()) {
+      errors.operationsDetails = 'Enter details of operations.';
+    }
+    if (form.disease === 'Yes' && !String(form.diseaseDetails || '').trim()) {
+      errors.diseaseDetails = 'Enter details of diseases.';
+    }
   }
 
   return errors;
@@ -576,20 +723,46 @@ function SelectField({ name, label, value, onChange, options, required = false, 
   );
 }
 
-function TextAreaField({ name, label, value, onChange, placeholder = '', helper = '' }) {
+function TextAreaField({ name, label, value, onChange, placeholder = '', helper = '', error = '', readOnly = false, required = false }) {
   const inputId = `field-${name}`;
   return (
-    <div className="field field-wide">
-      <label htmlFor={inputId}>{label}</label>
+    <div className={`field field-wide ${error ? 'has-error' : ''}`}>
+      <label htmlFor={inputId}>
+        {label}
+        {required && <span className="required-mark" aria-hidden="true">*</span>}
+      </label>
       <textarea
+        aria-describedby={error ? `${inputId}-error` : helper ? `${inputId}-helper` : undefined}
+        aria-invalid={Boolean(error)}
         id={inputId}
         name={name}
         onChange={(event) => onChange(name, event.target.value)}
         placeholder={placeholder}
+        readOnly={readOnly}
         rows="3"
         value={value ?? ''}
       />
-      {helper && <p className="field-helper" id={`${inputId}-helper`}>{helper}</p>}
+      {helper && !error && <p className="field-helper" id={`${inputId}-helper`}>{helper}</p>}
+      {error && <p className="field-error" id={`${inputId}-error`} role="alert">{error}</p>}
+    </div>
+  );
+}
+
+function CheckboxField({ name, label, checked, onChange, helper = '' }) {
+  const inputId = `field-${name}`;
+  return (
+    <div className="field-checkbox">
+      <label className="checkbox-label" htmlFor={inputId}>
+        <input
+          checked={Boolean(checked)}
+          id={inputId}
+          name={name}
+          onChange={(event) => onChange(name, event.target.checked)}
+          type="checkbox"
+        />
+        <span>{label}</span>
+      </label>
+      {helper && <p className="field-helper">{helper}</p>}
     </div>
   );
 }
@@ -1021,147 +1194,343 @@ function FormView({
           <div className="form-section-wrap">
             {activeStep === 0 && (
               <>
-                <SectionHeading description="Start with the person this case is about." number="01" title="Applicant details" />
+                <SectionHeading description="Start with the person this proposal is about." number="01" title="Applicant details" />
                 <div className="field-grid">
-                  <Field error={fieldErrors.fullName} label="Applicant name" name="fullName" onChange={onChange} placeholder="e.g. Aarav Mehta" required value={form.fullName} />
-                  <Field label="Proposer name" name="proposerName" onChange={onChange} placeholder="If different from applicant" value={form.proposerName} />
-                  <Field error={fieldErrors.dateOfBirth} label="Date of birth" name="dateOfBirth" onChange={onChange} required type="date" value={form.dateOfBirth} />
-                  <Field helper="Calculated from date of birth" label="Age" name="age" onChange={onChange} readOnly value={form.age} />
-                  <SelectField error={fieldErrors.gender} label="Gender" name="gender" onChange={onChange} options={['Female', 'Male', 'Non-binary', 'Prefer not to say']} required value={form.gender} />
-                  <SelectField label="Marital status" name="maritalStatus" onChange={onChange} options={['Single', 'Married', 'Widowed', 'Divorced']} value={form.maritalStatus} />
-                  <Field helper="12 digits, stored securely" label="Aadhaar number" name="aadhaar" onChange={onChange} placeholder="0000 0000 0000" value={form.aadhaar} />
-                  <Field helper="Format: AAAAA9999A" label="PAN number" name="pan" onChange={onChange} placeholder="ABCDE1234F" value={form.pan} />
+                  <Field error={fieldErrors.fullName} label="Name of Life Assured" name="fullName" onChange={onChange} placeholder="e.g. RAPOLU PRASAD" required value={form.fullName} />
+                  <Field label="Proposer Name" name="proposerName" onChange={onChange} placeholder="e.g. SELF or Proposer's name" value={form.proposerName} />
+                  <Field error={fieldErrors.aadhaar} helper="12 digits, stored securely" label="Aadhaar Number" name="aadhaar" onChange={onChange} placeholder="0000 0000 0000" required value={form.aadhaar} />
+                  <Field error={fieldErrors.pan} helper="Format: ABCDE1234F" label="PAN Number" name="pan" onChange={onChange} placeholder="ABCDE1234F" value={form.pan} />
+                  <Field label="CKYC" name="ckyc" onChange={onChange} placeholder="14-digit CKYC" value={form.ckyc} />
+                  <Field label="ABHA" name="abha" onChange={onChange} placeholder="ABHA number" value={form.abha} />
+                  <Field label="Father's Name" name="fatherName" onChange={onChange} placeholder="Father's full name" value={form.fatherName} />
+                  <Field label="Mother's Name" name="motherName" onChange={onChange} placeholder="Mother's full name" value={form.motherName} />
+                  <SelectField error={fieldErrors.gender} label="Gender" name="gender" onChange={onChange} options={['Male', 'Female', 'Trans', 'Non-binary', 'Prefer not to say']} required value={form.gender} />
+                  <SelectField error={fieldErrors.maritalStatus} label="Is Married" name="maritalStatus" onChange={onChange} options={['Single', 'Married', 'Widowed', 'Divorced']} required value={form.maritalStatus} />
+                  {(form.maritalStatus === 'Married' || form.maritalStatus === 'Yes') && (
+                    <>
+                      <Field error={fieldErrors.spouseName} label="Spouse's Name" name="spouseName" onChange={onChange} placeholder="Spouse's full name" required value={form.spouseName} />
+                      <Field label="Date of Marriage" name="marriageDate" onChange={onChange} type="date" value={form.marriageDate} />
+                    </>
+                  )}
                 </div>
               </>
             )}
 
             {activeStep === 1 && (
               <>
-                <SectionHeading description="Give the case a reliable line back to the customer." number="02" title="Contact & address" />
+                <SectionHeading description="Reachability, date of birth, and regulatory address verification." number="02" title="Contact & Address" />
                 <div className="field-grid">
-                  <Field error={fieldErrors.mobile} label="Mobile number" name="mobile" onChange={onChange} placeholder="10-digit mobile number" required type="tel" value={form.mobile} />
-                  <Field error={fieldErrors.email} label="Email address" name="email" onChange={onChange} placeholder="name@example.com" required type="email" value={form.email} />
-                  <TextAreaField helper="Include house number, street, and locality." label="Full address" name="address" onChange={onChange} placeholder="Address line" value={form.address} />
-                  <Field label="City / town" name="city" onChange={onChange} placeholder="e.g. Pune" value={form.city} />
-                  <SelectField label="State" name="state" onChange={onChange} options={STATE_OPTIONS} value={form.state} />
-                  <Field label="PIN code" name="pincode" onChange={onChange} placeholder="6-digit PIN" value={form.pincode} />
-                  <SelectField label="Residential status" name="residentialStatus" onChange={onChange} options={['Resident Indian', 'NRI', 'Foreign resident']} value={form.residentialStatus} />
+                  <Field error={fieldErrors.mobileAadhaar} helper="10 digits required" label="Mobile (Aadhaar linked)" name="mobileAadhaar" onChange={onChange} placeholder="10-digit mobile number" required type="tel" value={form.mobileAadhaar} />
+                  <Field error={fieldErrors.mobile} label="Alternate Mobile" name="mobile" onChange={onChange} placeholder="10-digit mobile number" type="tel" value={form.mobile} />
+                  <Field error={fieldErrors.whatsapp} label="WhatsApp Number" name="whatsapp" onChange={onChange} placeholder="10-digit WhatsApp number" type="tel" value={form.whatsapp} />
+                  <Field error={fieldErrors.email} label="Email Address" name="email" onChange={onChange} placeholder="name@example.com" type="email" value={form.email} />
+                  <Field error={fieldErrors.dateOfBirth} label="Date of Birth" name="dateOfBirth" onChange={onChange} required type="date" value={form.dateOfBirth} />
+                  <Field helper="Calculated from DOB" label="Age (Near LB)" name="age" onChange={onChange} readOnly value={form.age} />
+                  <Field label="Birth Place" name="birthPlace" onChange={onChange} placeholder="e.g. Cherlapally" value={form.birthPlace} />
+                  <SelectField label="Residential Status" name="residentialStatus" onChange={onChange} options={['Resident Indian', 'NRI', 'FNIO']} value={form.residentialStatus} />
+                </div>
+                <div className="address-section" style={{ marginTop: '1.5rem' }}>
+                  <CheckboxField checked={form.corrSameKyc} label="Is the correspondence address same as KYC?" name="corrSameKyc" onChange={onChange} />
+                  <div className="field-grid" style={{ marginTop: '1rem' }}>
+                    <TextAreaField label="Address as per KYC" name="address" onChange={onChange} placeholder="House no, Street, Locality, City, State, PIN" value={form.address} />
+                    <TextAreaField helper={form.corrSameKyc ? 'Auto-synced from KYC address' : 'Mailing address if different'} label="Correspondence Address" name="corrAddress" onChange={onChange} placeholder="Correspondence address" readOnly={form.corrSameKyc} value={form.corrAddress} />
+                  </div>
+                  <div className="field-grid compact-grid" style={{ marginTop: '1rem' }}>
+                    <Field label="City / Town" name="city" onChange={onChange} placeholder="e.g. Nalgonda" value={form.city} />
+                    <SelectField label="State" name="state" onChange={onChange} options={STATE_OPTIONS} value={form.state} />
+                    <Field label="PIN Code" name="pincode" onChange={onChange} placeholder="6-digit PIN" value={form.pincode} />
+                  </div>
                 </div>
               </>
             )}
 
             {activeStep === 2 && (
               <>
-                <SectionHeading description="Capture the context that supports the proposed cover." number="03" title="Work & income" />
+                <SectionHeading description="Educational qualification, professional profile, and annual earnings." number="03" title="Work & Income" />
                 <div className="field-grid">
-                  <SelectField label="Highest education" name="education" onChange={onChange} options={['School', 'Diploma', 'Graduate', 'Postgraduate', 'Professional']} value={form.education} />
-                  <Field error={fieldErrors.occupation} label="Current occupation" name="occupation" onChange={onChange} placeholder="e.g. Product designer" required value={form.occupation} />
-                  <Field error={fieldErrors.annualIncome} label="Annual income" name="annualIncome" onChange={onChange} placeholder="₹ 0" required type="number" value={form.annualIncome} />
-                  <Field label="Employer / business" name="employer" onChange={onChange} placeholder="Company or practice name" value={form.employer} />
+                  <Field label="Education" name="education" onChange={onChange} placeholder="e.g. Graduate, Intermediate, School" value={form.education} />
+                  <Field error={fieldErrors.occupation} label="Current Job / Occupation" name="occupation" onChange={onChange} placeholder="e.g. Software Engineer, Weaver" required value={form.occupation} />
+                  <Field label="Type of Duty" name="typeOfDuty" onChange={onChange} placeholder="e.g. Desk work, Weaver, Administration" value={form.typeOfDuty} />
+                  <Field label="Company / Employer Name" name="employer" onChange={onChange} placeholder="Company or practice name" value={form.employer} />
+                  <Field label="Since" name="since" onChange={onChange} placeholder="e.g. 5 Years or Year" value={form.since} />
+                  <Field label="Total Experience" name="totalExperience" onChange={onChange} placeholder="e.g. 10 Years" value={form.totalExperience} />
+                  <Field error={fieldErrors.annualIncome} label="Annual Income (₹)" name="annualIncome" onChange={onChange} placeholder="₹ 0" required type="number" value={form.annualIncome} />
+                  <Field label="Last Year (LY) Income 1 (₹)" name="lyIncome1" onChange={onChange} placeholder="₹ 0" type="number" value={form.lyIncome1} />
+                  <Field label="Last Year (LY) Income 2 (₹)" name="lyIncome2" onChange={onChange} placeholder="₹ 0" type="number" value={form.lyIncome2} />
+                  <Field label="Last Year (LY) Income 3 (₹)" name="lyIncome3" onChange={onChange} placeholder="₹ 0" type="number" value={form.lyIncome3} />
                 </div>
+                {String(form.gender || '').toLowerCase() === 'female' && (
+                  <div className="sub-panel" style={{ marginTop: '1.5rem' }}>
+                    <div className="subsection-label">Husband Details</div>
+                    <div className="field-grid">
+                      <Field label="Husband Occupation" name="husbandOccupation" onChange={onChange} placeholder="Husband's occupation" value={form.husbandOccupation} />
+                      <Field label="Husband Annual Income (₹)" name="husbandAnnualIncome" onChange={onChange} placeholder="₹ 0" type="number" value={form.husbandAnnualIncome} />
+                    </div>
+                  </div>
+                )}
                 <div className="inline-note"><Icon name="info" size={16} /><span>Use the income figure the customer is comfortable supporting with documentation.</span></div>
               </>
             )}
 
             {activeStep === 3 && (
               <>
-                <SectionHeading description="Define the cover and the rhythm of the premium." number="04" title="Proposed plan" />
+                <SectionHeading description="Define the policy coverage, premium rhythm, and rider benefits." number="04" title="Proposed Plan" />
                 <div className="field-grid">
-                  <Field error={fieldErrors.planName} label="Plan name" name="planName" onChange={onChange} placeholder="e.g. Jeevan Labh" required value={form.planName} />
-                  <Field label="Plan number" name="planNumber" onChange={onChange} placeholder="Optional plan code" value={form.planNumber} />
-                  <Field label="Policy term" name="policyTerm" onChange={onChange} placeholder="Years" type="number" value={form.policyTerm} />
-                  <SelectField label="Premium mode" name="premiumMode" onChange={onChange} options={['Monthly', 'Quarterly', 'Half-yearly', 'Annual', 'Single']} value={form.premiumMode} />
-                  <Field error={fieldErrors.sumAssured} label="Sum assured" name="sumAssured" onChange={onChange} placeholder="₹ 0" required type="number" value={form.sumAssured} />
-                  <Field error={fieldErrors.premium} label="Premium" name="premium" onChange={onChange} placeholder="₹ 0" required type="number" value={form.premium} />
-                  <Field error={fieldErrors.commencementDate} label="Commencement date" name="commencementDate" onChange={onChange} required type="date" value={form.commencementDate} />
+                  <Field error={fieldErrors.planName} label="Plan / Term" name="planName" onChange={onChange} placeholder="e.g. Jeevan Labh (936-25) or 751-15" required value={form.planName} />
+                  <Field label="Policy No / Plan Code" name="planNumber" onChange={onChange} placeholder="Policy number if available" value={form.planNumber} />
+                  <Field label="Policy Term (Years)" name="policyTerm" onChange={onChange} placeholder="Years" type="number" value={form.policyTerm} />
+                  <Field label="PPT (Premium Paying Term)" name="ppt" onChange={onChange} placeholder="Years" type="number" value={form.ppt} />
+                  <SelectField label="Premium Mode" name="premiumMode" onChange={onChange} options={['Yearly', 'Half-Yearly', 'Quarterly', 'NACH', 'Monthly', 'Single']} value={form.premiumMode} />
+                  <Field error={fieldErrors.sumAssured} label="Sum Assured (₹)" name="sumAssured" onChange={onChange} placeholder="₹ 0" required type="number" value={form.sumAssured} />
+                  <Field error={fieldErrors.premium} label="Premium (₹)" name="premium" onChange={onChange} placeholder="₹ 0" required type="number" value={form.premium} />
+                  <SelectField label="Accidental Benefit" name="accidentalBenefit" onChange={onChange} options={['None', 'AB', 'ADDB']} value={form.accidentalBenefit} />
+                  <SelectField label="Term Rider" name="termRider" onChange={onChange} options={['No', 'Yes']} value={form.termRider} />
+                  <SelectField label="PWB (Premium Waiver Benefit)" name="pwb" onChange={onChange} options={['No', 'Yes']} value={form.pwb} />
+                  <SelectField label="Dating Back" name="datingBack" onChange={onChange} options={['No', 'Yes']} value={form.datingBack} />
+                  {form.datingBack === 'Yes' && (
+                    <Field error={fieldErrors.datingBackDate} label="Dating Back Date" name="datingBackDate" onChange={onChange} required type="date" value={form.datingBackDate} />
+                  )}
+                  <Field label="Date of Commencement (DOC)" name="commencementDate" onChange={onChange} type="date" value={form.commencementDate} />
+                </div>
+                <div className="sub-panel" style={{ marginTop: '1.5rem' }}>
+                  <div className="subsection-label">BOC Details (Optional)</div>
+                  <div className="field-grid">
+                    <Field label="BOC Number" name="bocNumber" onChange={onChange} placeholder="BOC receipt / number" value={form.bocNumber} />
+                    <Field label="BOC Date" name="bocDate" onChange={onChange} type="date" value={form.bocDate} />
+                    <Field label="BOC Amount (₹)" name="bocAmount" onChange={onChange} placeholder="₹ 0" type="number" value={form.bocAmount} />
+                  </div>
                 </div>
                 <div className="plan-callout">
                   <span className="callout-rule" aria-hidden="true" />
-                  <div><strong>Proposal rhythm</strong><p>{form.premium ? `${formatMoney(form.premium)} ${form.premiumMode.toLowerCase()} premium` : 'Add the premium to see the case rhythm.'}</p></div>
+                  <div><strong>Proposal rhythm</strong><p>{form.premium ? `${formatMoney(form.premium)} ${form.premiumMode.toLowerCase()} premium · Sum Assured: ${formatMoney(form.sumAssured)}` : 'Add the premium to see the case rhythm.'}</p></div>
                 </div>
               </>
             )}
 
             {activeStep === 4 && (
               <>
-                <SectionHeading description="Set the people who should receive the policy benefit." number="05" title="Nominee & appointee" />
+                <SectionHeading description="Set the people who should receive the policy benefit, and appointee for minors." number="05" title="Nominee & Appointee" />
                 {fieldErrors.nominees && <div className="validation-summary" role="alert"><Icon name="info" size={16} />{fieldErrors.nominees}</div>}
                 <div className="repeater-stack">
                   {form.nominees.map((nominee, index) => (
                     <div className="repeater-row nominee-row" key={`nominee-${index}`}>
-                      <div className="repeater-heading"><span className="repeater-index">0{index + 1}</span><div><strong>Nominee {index + 1}</strong><small>Benefit allocation</small></div>{form.nominees.length > 1 && <button className="remove-link" onClick={() => onRemoveRepeater('nominees', index)} type="button"><Icon name="trash" size={15} /> Remove</button>}</div>
+                      <div className="repeater-heading">
+                        <span className="repeater-index">0{index + 1}</span>
+                        <div><strong>Nominee {index + 1}</strong><small>Benefit allocation</small></div>
+                        {form.nominees.length > 1 && (
+                          <button className="remove-link" onClick={() => onRemoveRepeater('nominees', index)} type="button">
+                            <Icon name="trash" size={15} /> Remove
+                          </button>
+                        )}
+                      </div>
                       <div className="field-grid compact-grid">
-                        <Field error={fieldErrors[`nominee-${index}-name`]} label="Full name" name={`nominees.${index}.name`} onChange={(_, value) => onRepeaterChange('nominees', index, 'name', value)} placeholder="Nominee name" required value={nominee.name} />
-                        <SelectField error={fieldErrors[`nominee-${index}-relation`]} label="Relation" name={`nominees.${index}.relation`} onChange={(_, value) => onRepeaterChange('nominees', index, 'relation', value)} options={['Spouse', 'Father', 'Mother', 'Son', 'Daughter', 'Sibling', 'Other']} required value={nominee.relation} />
-                        <Field label="Age" name={`nominees.${index}.age`} onChange={(_, value) => onRepeaterChange('nominees', index, 'age', value)} type="number" value={nominee.age} />
-                        <Field label="Share %" name={`nominees.${index}.share`} onChange={(_, value) => onRepeaterChange('nominees', index, 'share', value)} type="number" value={nominee.share} />
-                        <Field label="Mobile number" name={`nominees.${index}.phone`} onChange={(_, value) => onRepeaterChange('nominees', index, 'phone', value)} type="tel" value={nominee.phone} />
+                        <Field error={fieldErrors[`nominee-${index}-name`]} label="Full Name" name={`nominees.${index}.name`} onChange={(_, value) => onRepeaterChange('nominees', index, 'name', value)} placeholder="Nominee name" required value={nominee.name} />
+                        <SelectField error={fieldErrors[`nominee-${index}-relation`]} label="Relation" name={`nominees.${index}.relation`} onChange={(_, value) => onRepeaterChange('nominees', index, 'relation', value)} options={['Spouse', 'Father', 'Mother', 'Son', 'Daughter', 'Brother', 'Sister', 'Other']} required value={nominee.relation} />
+                        <Field label="Share %" name={`nominees.${index}.share`} onChange={(_, value) => onRepeaterChange('nominees', index, 'share', value)} placeholder="100" type="number" value={nominee.share} />
+                        <Field label="Date of Birth" name={`nominees.${index}.dob`} onChange={(_, value) => onRepeaterChange('nominees', index, 'dob', value)} type="date" value={nominee.dob} />
+                        <Field label="Age" name={`nominees.${index}.age`} onChange={(_, value) => onRepeaterChange('nominees', index, 'age', value)} placeholder="Years" type="number" value={nominee.age} />
+                        <Field label="Nominee Aadhaar" name={`nominees.${index}.aadhaar`} onChange={(_, value) => onRepeaterChange('nominees', index, 'aadhaar', value)} placeholder="12-digit Aadhaar" value={nominee.aadhaar} />
+                        <Field label="Mobile Number" name={`nominees.${index}.phone`} onChange={(_, value) => onRepeaterChange('nominees', index, 'phone', value)} placeholder="10-digit mobile" type="tel" value={nominee.phone} />
                       </div>
                     </div>
                   ))}
                 </div>
-                <div className="repeater-footer"><button className="button button-quiet" onClick={() => onAddRepeater('nominees')} type="button"><Icon name="plus" size={16} /> Add another nominee</button><span className={form.nominees.reduce((sum, item) => sum + Number(item.share || 0), 0) === 100 ? 'share-total is-valid' : 'share-total'}><span>Allocated</span><strong>{form.nominees.reduce((sum, item) => sum + Number(item.share || 0), 0)}%</strong></span></div>
+                <div className="repeater-footer">
+                  <button className="button button-quiet" onClick={() => onAddRepeater('nominees')} type="button"><Icon name="plus" size={16} /> Add another nominee</button>
+                  <span className={Math.round(form.nominees.reduce((sum, item) => sum + Number(item.share || 0), 0)) === 100 ? 'share-total is-valid' : 'share-total'}>
+                    <span>Allocated</span>
+                    <strong>{form.nominees.reduce((sum, item) => sum + Number(item.share || 0), 0)}%</strong>
+                  </span>
+                </div>
+
+                <div className="sub-panel" style={{ marginTop: '2rem' }}>
+                  <div className="subsection-label">Appointee Details (for minor nominee)</div>
+                  <div className="field-grid">
+                    <Field label="Appointee Name" name="appointeeName" onChange={onChange} placeholder="Full name of appointee" value={form.appointeeName} />
+                    <Field label="Appointee Relation" name="appointeeRelation" onChange={onChange} placeholder="e.g. Uncle, Grandparent" value={form.appointeeRelation} />
+                    <Field label="Appointee Age" name="appointeeAge" onChange={onChange} placeholder="Years" type="number" value={form.appointeeAge} />
+                  </div>
+                </div>
               </>
             )}
 
             {activeStep === 5 && (
               <>
-                <SectionHeading description="Keep payment details ready for the final review." number="06" title="Bank details" />
+                <SectionHeading description="Direct benefit payout and NEFT bank account information." number="06" title="Bank Details" />
                 <div className="field-grid">
-                  <Field label="Bank name" name="bankName" onChange={onChange} placeholder="e.g. HDFC Bank" value={form.bankName} />
-                  <SelectField label="Account type" name="accountType" onChange={onChange} options={['Savings', 'Current', 'Salary']} value={form.accountType} />
-                  <Field label="Account number" name="accountNumber" onChange={onChange} placeholder="Account number" value={form.accountNumber} />
-                  <Field helper="11 characters" label="IFSC code" name="ifsc" onChange={onChange} placeholder="HDFC0000000" value={form.ifsc} />
-                  <Field label="MICR code" name="micr" onChange={onChange} placeholder="9-digit MICR" value={form.micr} />
+                  <Field label="Bank Name" name="bankName" onChange={onChange} placeholder="e.g. HDFC Bank, SBI" value={form.bankName} />
+                  <SelectField label="Account Type" name="accountType" onChange={onChange} options={['Savings', 'Current', 'Salary']} value={form.accountType} />
+                  <Field label="A/C Holder's Name" name="accountHolderName" onChange={onChange} placeholder="Name as in passbook / cheque" value={form.accountHolderName} />
+                  <Field label="Account Number" name="accountNumber" onChange={onChange} placeholder="Account number" value={form.accountNumber} />
+                  <Field error={fieldErrors.ifsc} helper="11 characters (e.g. HDFC0001234)" label="IFSC Code" name="ifsc" onChange={onChange} placeholder="HDFC0000000" value={form.ifsc} />
+                  <Field label="MICR Code" name="micr" onChange={onChange} placeholder="9-digit MICR" value={form.micr} />
+                  <TextAreaField label="Bank Branch Address" name="bankAddress" onChange={onChange} placeholder="Branch name, street, city" value={form.bankAddress} />
                 </div>
-                <div className="inline-note"><Icon name="shield" size={16} /><span>Bank fields are treated as sensitive and should be protected by your Firebase security rules.</span></div>
+                <div className="inline-note"><Icon name="shield" size={16} /><span>Bank fields are treated as sensitive and protected by security rules.</span></div>
               </>
             )}
 
             {activeStep === 6 && (
               <>
-                <SectionHeading description="Record the family and medical context that changes the case." number="07" title="Family & health" />
-                <div className="subsection-label">Immediate family</div>
+                <SectionHeading description="Family health history, immediate relatives, and medical declarations." number="07" title="Family & Health" />
+                <div className="subsection-label">Immediate Family</div>
                 <div className="family-grid">
-                  <div className="family-person"><strong>Father</strong><div className="field-grid compact-grid"><Field label="Age" name="fatherAge" onChange={onChange} type="number" value={form.fatherAge} /><Field label="State of health" name="fatherHealth" onChange={onChange} placeholder="Healthy, deceased…" value={form.fatherHealth} /></div></div>
-                  <div className="family-person"><strong>Mother</strong><div className="field-grid compact-grid"><Field label="Age" name="motherAge" onChange={onChange} type="number" value={form.motherAge} /><Field label="State of health" name="motherHealth" onChange={onChange} placeholder="Healthy, deceased…" value={form.motherHealth} /></div></div>
-                  <div className="family-person"><strong>Spouse</strong><div className="field-grid compact-grid"><Field label="Age" name="spouseAge" onChange={onChange} type="number" value={form.spouseAge} /><Field label="State of health" name="spouseHealth" onChange={onChange} placeholder="Healthy, deceased…" value={form.spouseHealth} /></div></div>
+                  <div className="family-person">
+                    <strong>Father</strong>
+                    <div className="field-grid compact-grid">
+                      <Field label="Age" name="fatherAge" onChange={onChange} type="number" value={form.fatherAge} />
+                      <SelectField label="State of Health" name="fatherHealth" onChange={onChange} options={['Good', 'Dead']} value={form.fatherHealth} />
+                    </div>
+                    {form.fatherHealth === 'Dead' && (
+                      <div className="field-grid compact-grid" style={{ marginTop: '0.75rem' }}>
+                        <Field error={fieldErrors.fatherDiedAge} label="Age at Death" name="fatherDiedAge" onChange={onChange} placeholder="Years" type="number" value={form.fatherDiedAge} />
+                        <Field error={fieldErrors.fatherDiedYear} label="Death Year" name="fatherDiedYear" onChange={onChange} placeholder="e.g. 2012" type="number" value={form.fatherDiedYear} />
+                        <Field error={fieldErrors.fatherDiedCause} label="Cause of Death" name="fatherDiedCause" onChange={onChange} placeholder="Cause" value={form.fatherDiedCause} />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="family-person">
+                    <strong>Mother</strong>
+                    <div className="field-grid compact-grid">
+                      <Field label="Age" name="motherAge" onChange={onChange} type="number" value={form.motherAge} />
+                      <SelectField label="State of Health" name="motherHealth" onChange={onChange} options={['Good', 'Dead']} value={form.motherHealth} />
+                    </div>
+                    {form.motherHealth === 'Dead' && (
+                      <div className="field-grid compact-grid" style={{ marginTop: '0.75rem' }}>
+                        <Field error={fieldErrors.motherDiedAge} label="Age at Death" name="motherDiedAge" onChange={onChange} placeholder="Years" type="number" value={form.motherDiedAge} />
+                        <Field error={fieldErrors.motherDiedYear} label="Death Year" name="motherDiedYear" onChange={onChange} placeholder="e.g. 2018" type="number" value={form.motherDiedYear} />
+                        <Field error={fieldErrors.motherDiedCause} label="Cause of Death" name="motherDiedCause" onChange={onChange} placeholder="Cause" value={form.motherDiedCause} />
+                      </div>
+                    )}
+                  </div>
+
+                  {(form.maritalStatus === 'Married' || form.maritalStatus === 'Yes') && (
+                    <div className="family-person">
+                      <strong>Spouse</strong>
+                      <div className="field-grid compact-grid">
+                        <Field label="Age" name="spouseAge" onChange={onChange} type="number" value={form.spouseAge} />
+                        <SelectField label="State of Health" name="spouseHealth" onChange={onChange} options={['Good', 'Dead']} value={form.spouseHealth} />
+                      </div>
+                      {form.spouseHealth === 'Dead' && (
+                        <div className="field-grid compact-grid" style={{ marginTop: '0.75rem' }}>
+                          <Field error={fieldErrors.spouseDiedAge} label="Age at Death" name="spouseDiedAge" onChange={onChange} placeholder="Years" type="number" value={form.spouseDiedAge} />
+                          <Field error={fieldErrors.spouseDiedYear} label="Death Year" name="spouseDiedYear" onChange={onChange} placeholder="e.g. 2020" type="number" value={form.spouseDiedYear} />
+                          <Field error={fieldErrors.spouseDiedCause} label="Cause of Death" name="spouseDiedCause" onChange={onChange} placeholder="Cause" value={form.spouseDiedCause} />
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-                <div className="subsection-label">Siblings</div>
+
+                <div className="subsection-label" style={{ marginTop: '1.5rem' }}>Siblings</div>
                 <div className="mini-repeater">
-                  {form.siblings.map((sibling, index) => <div className="mini-repeater-row" key={`sibling-${index}`}><span>{String(index + 1).padStart(2, '0')}</span><SelectField label="Relation" name={`siblings.${index}.relation`} onChange={(_, value) => onRepeaterChange('siblings', index, 'relation', value)} options={['Brother', 'Sister']} value={sibling.relation} /><Field label="Age" name={`siblings.${index}.age`} onChange={(_, value) => onRepeaterChange('siblings', index, 'age', value)} type="number" value={sibling.age} /><SelectField label="State" name={`siblings.${index}.health`} onChange={(_, value) => onRepeaterChange('siblings', index, 'health', value)} options={['Alive', 'Dead']} value={sibling.health} /><button aria-label="Remove sibling" className="icon-button icon-danger" onClick={() => onRemoveRepeater('siblings', index)} type="button"><Icon name="trash" size={15} /></button></div>)}
+                  {form.siblings.map((sibling, index) => (
+                    <div className="mini-repeater-card" key={`sibling-${index}`}>
+                      <div className="mini-repeater-row">
+                        <span>{String(index + 1).padStart(2, '0')}</span>
+                        <SelectField label="Relation" name={`siblings.${index}.relation`} onChange={(_, value) => onRepeaterChange('siblings', index, 'relation', value)} options={['Brother', 'Sister']} value={sibling.relation} />
+                        <Field label="Age" name={`siblings.${index}.age`} onChange={(_, value) => onRepeaterChange('siblings', index, 'age', value)} type="number" value={sibling.age} />
+                        <SelectField label="State" name={`siblings.${index}.health`} onChange={(_, value) => onRepeaterChange('siblings', index, 'health', value)} options={['Good', 'Dead']} value={sibling.health} />
+                        <button aria-label="Remove sibling" className="icon-button icon-danger" onClick={() => onRemoveRepeater('siblings', index)} type="button"><Icon name="trash" size={15} /></button>
+                      </div>
+                      {sibling.health === 'Dead' && (
+                        <div className="field-grid compact-grid death-subgrid">
+                          <Field label="Age at Death" name={`siblings.${index}.diedAge`} onChange={(_, value) => onRepeaterChange('siblings', index, 'diedAge', value)} type="number" value={sibling.diedAge} />
+                          <Field label="Death Year" name={`siblings.${index}.diedYear`} onChange={(_, value) => onRepeaterChange('siblings', index, 'diedYear', value)} type="number" value={sibling.diedYear} />
+                          <Field label="Cause of Death" name={`siblings.${index}.diedCause`} onChange={(_, value) => onRepeaterChange('siblings', index, 'diedCause', value)} value={sibling.diedCause} />
+                        </div>
+                      )}
+                    </div>
+                  ))}
                   <button className="button button-quiet button-small" onClick={() => onAddRepeater('siblings')} type="button"><Icon name="plus" size={15} /> Add sibling</button>
                 </div>
-                <div className="subsection-label">Children & measurements</div>
+
+                <div className="subsection-label" style={{ marginTop: '1.5rem' }}>Children</div>
                 <div className="mini-repeater">
-                  {form.children.map((child, index) => <div className="mini-repeater-row" key={`child-${index}`}><span>{String(index + 1).padStart(2, '0')}</span><Field label="Age" name={`children.${index}.age`} onChange={(_, value) => onRepeaterChange('children', index, 'age', value)} type="number" value={child.age} /><SelectField label="State" name={`children.${index}.health`} onChange={(_, value) => onRepeaterChange('children', index, 'health', value)} options={['Alive', 'Dead']} value={child.health} /><button aria-label="Remove child" className="icon-button icon-danger" onClick={() => onRemoveRepeater('children', index)} type="button"><Icon name="trash" size={15} /></button></div>)}
+                  {form.children.map((child, index) => (
+                    <div className="mini-repeater-card" key={`child-${index}`}>
+                      <div className="mini-repeater-row">
+                        <span>{String(index + 1).padStart(2, '0')}</span>
+                        <Field label="Age" name={`children.${index}.age`} onChange={(_, value) => onRepeaterChange('children', index, 'age', value)} type="number" value={child.age} />
+                        <SelectField label="State" name={`children.${index}.health`} onChange={(_, value) => onRepeaterChange('children', index, 'health', value)} options={['Good', 'Dead']} value={child.health} />
+                        <button aria-label="Remove child" className="icon-button icon-danger" onClick={() => onRemoveRepeater('children', index)} type="button"><Icon name="trash" size={15} /></button>
+                      </div>
+                      {child.health === 'Dead' && (
+                        <div className="field-grid compact-grid death-subgrid">
+                          <Field label="Age at Death" name={`children.${index}.diedAge`} onChange={(_, value) => onRepeaterChange('children', index, 'diedAge', value)} type="number" value={child.diedAge} />
+                          <Field label="Death Year" name={`children.${index}.diedYear`} onChange={(_, value) => onRepeaterChange('children', index, 'diedYear', value)} type="number" value={child.diedYear} />
+                          <Field label="Cause of Death" name={`children.${index}.diedCause`} onChange={(_, value) => onRepeaterChange('children', index, 'diedCause', value)} value={child.diedCause} />
+                        </div>
+                      )}
+                    </div>
+                  ))}
                   <button className="button button-quiet button-small" onClick={() => onAddRepeater('children')} type="button"><Icon name="plus" size={15} /> Add child</button>
                 </div>
-                <div className="field-grid compact-grid health-measurements"><Field label="Height (cm)" name="height" onChange={onChange} type="number" value={form.height} /><Field label="Weight (kg)" name="weight" onChange={onChange} type="number" value={form.weight} /><Field label="Abdomen (cm)" name="abdomen" onChange={onChange} type="number" value={form.abdomen} /><SelectField label="Past operations" name="operations" onChange={onChange} options={['No', 'Yes']} value={form.operations} /></div>
-                <div className="field-grid compact-grid"><SelectField label="Disease history" name="disease" onChange={onChange} options={['No', 'Yes']} value={form.disease} />{form.disease === 'Yes' && <Field label="Disease details" name="diseaseDetails" onChange={onChange} value={form.diseaseDetails} />}{form.operations === 'Yes' && <Field label="Operation details" name="operationsDetails" onChange={onChange} value={form.operationsDetails} />}</div>
+
+                <div className="subsection-label" style={{ marginTop: '1.5rem' }}>Medical Measurements & Declarations</div>
+                <div className="field-grid compact-grid health-measurements">
+                  <Field label="Height (cm)" name="height" onChange={onChange} placeholder="e.g. 165" type="number" value={form.height} />
+                  <Field label="Weight (kg)" name="weight" onChange={onChange} placeholder="e.g. 68" type="number" value={form.weight} />
+                  <Field label="Abdomen (cm)" name="abdomen" onChange={onChange} placeholder="e.g. 80" type="number" value={form.abdomen} />
+                  <SelectField label="Any Past Operations?" name="operations" onChange={onChange} options={['No', 'Yes']} value={form.operations} />
+                </div>
+                {form.operations === 'Yes' && (
+                  <div className="field-grid" style={{ marginTop: '0.75rem' }}>
+                    <Field error={fieldErrors.operationsDetails} label="Operation Details" name="operationsDetails" onChange={onChange} placeholder="Details of surgery or operation" value={form.operationsDetails} />
+                  </div>
+                )}
+                <div className="field-grid compact-grid" style={{ marginTop: '0.75rem' }}>
+                  <SelectField label="Any Diseases?" name="disease" onChange={onChange} options={['No', 'Yes']} value={form.disease} />
+                  {form.disease === 'Yes' && (
+                    <Field error={fieldErrors.diseaseDetails} label="Disease Details" name="diseaseDetails" onChange={onChange} placeholder="Details of diseases or medical conditions" value={form.diseaseDetails} />
+                  )}
+                </div>
+
+                {String(form.gender || '').toLowerCase() === 'female' && (
+                  <div className="field-grid compact-grid" style={{ marginTop: '0.75rem' }}>
+                    <SelectField label="Are you pregnant?" name="pregnancy" onChange={onChange} options={['No', 'Yes']} value={form.pregnancy} />
+                    <Field label="Date of Last Delivery" name="lastDelivery" onChange={onChange} type="date" value={form.lastDelivery} />
+                  </div>
+                )}
               </>
             )}
 
             {activeStep === 7 && (
               <>
-                <SectionHeading description="A short history prevents duplicate or incomplete records." number="08" title="Previous policies" />
+                <SectionHeading description="Record past life insurance policies to ensure full regulatory disclosure." number="08" title="Previous Policies" />
                 <div className="repeater-stack">
                   {form.previousPolicies.map((policy, index) => (
                     <div className="repeater-row previous-row" key={`policy-${index}`}>
-                      <div className="repeater-heading"><span className="repeater-index">0{index + 1}</span><div><strong>Previous policy {index + 1}</strong><small>Policy history</small></div><button className="remove-link" onClick={() => onRemoveRepeater('previousPolicies', index)} type="button"><Icon name="trash" size={15} /> Remove</button></div>
+                      <div className="repeater-heading">
+                        <span className="repeater-index">0{index + 1}</span>
+                        <div><strong>Previous Policy {index + 1}</strong><small>Policy history</small></div>
+                        <button className="remove-link" onClick={() => onRemoveRepeater('previousPolicies', index)} type="button">
+                          <Icon name="trash" size={15} /> Remove
+                        </button>
+                      </div>
                       <div className="field-grid compact-grid">
-                        <Field label="Policy number" name={`previousPolicies.${index}.policyNumber`} onChange={(_, value) => onRepeaterChange('previousPolicies', index, 'policyNumber', value)} value={policy.policyNumber} />
-                        <Field label="Branch" name={`previousPolicies.${index}.branch`} onChange={(_, value) => onRepeaterChange('previousPolicies', index, 'branch', value)} value={policy.branch} />
-                        <Field label="Plan / term" name={`previousPolicies.${index}.planTerm`} onChange={(_, value) => onRepeaterChange('previousPolicies', index, 'planTerm', value)} value={policy.planTerm} />
-                        <Field label="Sum assured" name={`previousPolicies.${index}.sumAssured`} onChange={(_, value) => onRepeaterChange('previousPolicies', index, 'sumAssured', value)} type="number" value={policy.sumAssured} />
-                        <Field label="Premium" name={`previousPolicies.${index}.premium`} onChange={(_, value) => onRepeaterChange('previousPolicies', index, 'premium', value)} type="number" value={policy.premium} />
-                        <SelectField label="Inforce status" name={`previousPolicies.${index}.inforce`} onChange={(_, value) => onRepeaterChange('previousPolicies', index, 'inforce', value)} options={['In force', 'Lapsed', 'Matured', 'Surrendered']} value={policy.inforce} />
+                        <Field label="Policy Number" name={`previousPolicies.${index}.policyNumber`} onChange={(_, value) => onRepeaterChange('previousPolicies', index, 'policyNumber', value)} placeholder="e.g. 685412998" value={policy.policyNumber} />
+                        <Field label="Branch" name={`previousPolicies.${index}.branch`} onChange={(_, value) => onRepeaterChange('previousPolicies', index, 'branch', value)} placeholder="Branch name" value={policy.branch} />
+                        <Field label="Plan / Term" name={`previousPolicies.${index}.planTerm`} onChange={(_, value) => onRepeaterChange('previousPolicies', index, 'planTerm', value)} placeholder="e.g. 814-20" value={policy.planTerm} />
+                        <Field label="Sum Assured (₹)" name={`previousPolicies.${index}.sumAssured`} onChange={(_, value) => onRepeaterChange('previousPolicies', index, 'sumAssured', value)} placeholder="₹ 0" type="number" value={policy.sumAssured} />
+                        <Field label="Premium (₹)" name={`previousPolicies.${index}.premium`} onChange={(_, value) => onRepeaterChange('previousPolicies', index, 'premium', value)} placeholder="₹ 0" type="number" value={policy.premium} />
+                        <SelectField label="Mode" name={`previousPolicies.${index}.mode`} onChange={(_, value) => onRepeaterChange('previousPolicies', index, 'mode', value)} options={['Yearly', 'Half Yearly', 'Quarterly', 'NACH', 'Single']} value={policy.mode} />
+                        <SelectField label="Accidental Benefit" name={`previousPolicies.${index}.accidentalBenefit`} onChange={(_, value) => onRepeaterChange('previousPolicies', index, 'accidentalBenefit', value)} options={['None', 'AB', 'ADDB']} value={policy.accidentalBenefit} />
+                        <Field label="Date of Commencement" name={`previousPolicies.${index}.commencementDate`} onChange={(_, value) => onRepeaterChange('previousPolicies', index, 'commencementDate', value)} type="date" value={policy.commencementDate} />
+                        <SelectField label="Rate Accepted" name={`previousPolicies.${index}.rateAccepted`} onChange={(_, value) => onRepeaterChange('previousPolicies', index, 'rateAccepted', value)} options={['Ordinary Rate', 'Special Rate']} value={policy.rateAccepted} />
+                        <SelectField label="Medical" name={`previousPolicies.${index}.medicalType`} onChange={(_, value) => onRepeaterChange('previousPolicies', index, 'medicalType', value)} options={['Medical', 'Non-Medical']} value={policy.medicalType} />
+                        <SelectField label="Inforce Status" name={`previousPolicies.${index}.inforce`} onChange={(_, value) => onRepeaterChange('previousPolicies', index, 'inforce', value)} options={['Yes', 'No', 'In force', 'Lapsed', 'Matured', 'Surrendered']} value={policy.inforce} />
                       </div>
                     </div>
                   ))}
                 </div>
-                <button className="button button-quiet" onClick={() => onAddRepeater('previousPolicies')} type="button"><Icon name="plus" size={16} /> Add previous policy</button>
-                {!form.previousPolicies.length && <div className="empty-inline"><Icon name="check" size={15} /><span>No previous policies recorded. You can continue.</span></div>}
+                <button className="button button-quiet" onClick={() => onAddRepeater('previousPolicies')} type="button">
+                  <Icon name="plus" size={16} /> Add previous policy
+                </button>
+                {!form.previousPolicies.length && (
+                  <div className="empty-inline"><Icon name="check" size={15} /><span>No previous policies recorded. You can continue.</span></div>
+                )}
               </>
             )}
 
@@ -1189,34 +1558,203 @@ function FormView({
 
 function ReviewPanel({ form, fieldErrors, isAnonymousGuest, isGuest, onStepChange }) {
   const reviewSections = [
-    { step: 0, title: 'Applicant', fields: [['fullName', 'Name'], ['dateOfBirth', 'Date of birth'], ['gender', 'Gender'], ['maritalStatus', 'Marital status']] },
-    { step: 1, title: 'Contact', fields: [['mobile', 'Mobile'], ['email', 'Email'], ['city', 'City'], ['state', 'State']] },
-    { step: 2, title: 'Work & income', fields: [['occupation', 'Occupation'], ['annualIncome', 'Annual income'], ['employer', 'Employer']] },
-    { step: 3, title: 'Proposed plan', fields: [['planName', 'Plan'], ['sumAssured', 'Sum assured'], ['premium', 'Premium'], ['premiumMode', 'Mode']] },
-    { step: 4, title: 'Nominee', fields: [['nominees', 'Nominees']] },
-    { step: 5, title: 'Bank details', fields: [['bankName', 'Bank'], ['accountType', 'Account type'], ['ifsc', 'IFSC']] },
+    {
+      step: 0,
+      title: 'Applicant & Identity',
+      fields: [
+        ['fullName', 'Full name'],
+        ['proposerName', 'Proposer name'],
+        ['fatherName', 'Father\'s name'],
+        ['motherName', 'Mother\'s name'],
+        ['dateOfBirth', 'Date of birth'],
+        ['birthPlace', 'Place of birth'],
+        ['age', 'Age (Near LB)'],
+        ['gender', 'Gender'],
+        ['maritalStatus', 'Marital status'],
+        ['spouseName', 'Spouse name'],
+        ['marriageDate', 'Marriage date'],
+        ['residentialStatus', 'Residential status'],
+        ['aadhaar', 'Aadhaar card number'],
+        ['pan', 'PAN card number'],
+        ['ckyc', 'CKYC number'],
+        ['abha', 'ABHA ID / card number'],
+      ],
+    },
+    {
+      step: 1,
+      title: 'Contact & Addresses',
+      fields: [
+        ['mobile', 'Primary mobile'],
+        ['mobileAadhaar', 'Aadhaar linked mobile'],
+        ['whatsapp', 'WhatsApp number'],
+        ['email', 'Email address'],
+        ['address', 'KYC address'],
+        ['corrAddress', 'Correspondence address'],
+        ['city', 'City / Village'],
+        ['state', 'State'],
+        ['pincode', 'Pincode'],
+      ],
+    },
+    {
+      step: 2,
+      title: 'Work & Income',
+      fields: [
+        ['education', 'Educational qualification'],
+        ['occupation', 'Occupation'],
+        ['typeOfDuty', 'Nature of duty'],
+        ['employer', 'Employer / Business name'],
+        ['since', 'Employed since'],
+        ['totalExperience', 'Total experience'],
+        ['annualIncome', 'Current annual income'],
+        ['lyIncome1', 'Last year income (Year 1)'],
+        ['lyIncome2', 'Last year income (Year 2)'],
+        ['lyIncome3', 'Last year income (Year 3)'],
+        ['husbandOccupation', 'Husband occupation'],
+        ['husbandAnnualIncome', 'Husband annual income'],
+      ],
+    },
+    {
+      step: 3,
+      title: 'Proposed Plan',
+      fields: [
+        ['planName', 'Plan / Table'],
+        ['planNumber', 'Policy / Plan code'],
+        ['policyTerm', 'Policy term (Years)'],
+        ['ppt', 'Premium paying term (PPT)'],
+        ['sumAssured', 'Sum assured'],
+        ['premium', 'Approx. premium'],
+        ['premiumMode', 'Premium mode'],
+        ['accidentalBenefit', 'Accidental benefit'],
+        ['termRider', 'Term rider'],
+        ['pwb', 'Premium waiver benefit (PWB)'],
+        ['datingBack', 'Dating back chosen'],
+        ['datingBackDate', 'Dating back date'],
+        ['bocNumber', 'BOC number'],
+        ['bocDate', 'BOC date'],
+        ['bocAmount', 'BOC amount'],
+        ['commencementDate', 'Date of commencement (DOC)'],
+      ],
+    },
+    {
+      step: 4,
+      title: 'Nominees & Appointee',
+      fields: [
+        ['nominees', 'Nominees'],
+        ['appointeeName', 'Appointee name'],
+        ['appointeeRelation', 'Appointee relationship'],
+        ['appointeeAge', 'Appointee age'],
+      ],
+    },
+    {
+      step: 5,
+      title: 'Bank Details',
+      fields: [
+        ['bankName', 'Bank name'],
+        ['accountType', 'Account type'],
+        ['accountHolderName', 'Account holder name'],
+        ['accountNumber', 'Account number'],
+        ['ifsc', 'IFSC code'],
+        ['micr', 'MICR code'],
+        ['bankAddress', 'Bank branch address'],
+      ],
+    },
+    {
+      step: 6,
+      title: 'Family & Personal Health',
+      fields: [
+        ['familySummary', 'Family history'],
+        ['height', 'Height (cm)'],
+        ['weight', 'Weight (kg)'],
+        ['abdomen', 'Abdomen girth (cm)'],
+        ['operations', 'Past operations'],
+        ['operationsDetails', 'Operation details'],
+        ['disease', 'Past illness / diseases'],
+        ['diseaseDetails', 'Disease details'],
+        ['pregnancy', 'Currently pregnant'],
+        ['lastDelivery', 'Last delivery date'],
+      ],
+    },
+    {
+      step: 7,
+      title: 'Previous Policies',
+      fields: [
+        ['previousPoliciesSummary', 'Previous life insurance policies'],
+      ],
+    },
   ];
 
   return (
     <div className="review-panel">
       <SectionHeading description="A final pass keeps the submitted record useful to everyone who touches it." number="09" title="Review & submit" />
-      {Object.keys(fieldErrors).length > 0 && <div className="validation-summary" role="alert"><Icon name="info" size={16} /><span>There are a few details to resolve. Use the edit links below to return to their section.</span></div>}
+      {Object.keys(fieldErrors).length > 0 && (
+        <div className="validation-summary" role="alert">
+          <Icon name="info" size={16} />
+          <span>There are a few details to resolve. Use the edit links below to return to their section.</span>
+        </div>
+      )}
       <div className="review-grid">
         {reviewSections.map((section) => (
           <section className="review-block" key={section.title}>
-            <div className="review-block-heading"><h3>{section.title}</h3><button className="text-button" onClick={() => onStepChange(section.step)} type="button">Edit <Icon name="edit" size={14} /></button></div>
+            <div className="review-block-heading">
+              <h3>{section.title}</h3>
+              <button className="text-button" onClick={() => onStepChange(section.step)} type="button">
+                Edit <Icon name="edit" size={14} />
+              </button>
+            </div>
             <dl>
               {section.fields.map(([field, label]) => {
-                const value = field === 'nominees'
-                  ? form.nominees.map((nominee) => nominee.name || 'Unnamed').join(', ')
-                  : form[field];
-                return <div className={fieldErrors[field] ? 'review-field has-error' : 'review-field'} key={field}><dt>{label}</dt><dd>{field === 'premium' || field === 'sumAssured' || field === 'annualIncome' ? formatMoney(value) : value || 'Not added'}</dd></div>;
+                let displayValue = form[field];
+
+                if (field === 'nominees') {
+                  displayValue = form.nominees && form.nominees.length
+                    ? form.nominees.map((nominee) => `${nominee.name || 'Unnamed'} (${nominee.relation || 'Relation'}, ${nominee.share || 0}%)`).join('; ')
+                    : 'None added';
+                } else if (field === 'familySummary') {
+                  const parts = [];
+                  if (form.fatherAge || form.fatherHealth) {
+                    parts.push(`Father: ${form.fatherHealth || 'Good'} (Age: ${form.fatherAge || 'N/A'}${form.fatherHealth === 'Dead' ? `, Died Age: ${form.fatherDiedAge || 'N/A'}, Year: ${form.fatherDiedYear || 'N/A'}, Cause: ${form.fatherDiedCause || 'N/A'}` : ''})`);
+                  }
+                  if (form.motherAge || form.motherHealth) {
+                    parts.push(`Mother: ${form.motherHealth || 'Good'} (Age: ${form.motherAge || 'N/A'}${form.motherHealth === 'Dead' ? `, Died Age: ${form.motherDiedAge || 'N/A'}, Year: ${form.motherDiedYear || 'N/A'}, Cause: ${form.motherDiedCause || 'N/A'}` : ''})`);
+                  }
+                  if (form.spouseAge || form.spouseHealth) {
+                    parts.push(`Spouse: ${form.spouseHealth || 'Good'} (Age: ${form.spouseAge || 'N/A'}${form.spouseHealth === 'Dead' ? `, Died Age: ${form.spouseDiedAge || 'N/A'}, Year: ${form.spouseDiedYear || 'N/A'}, Cause: ${form.spouseDiedCause || 'N/A'}` : ''})`);
+                  }
+                  if (form.siblings?.length) parts.push(`${form.siblings.length} sibling(s)`);
+                  if (form.children?.length) parts.push(`${form.children.length} child(ren)`);
+                  displayValue = parts.length ? parts.join(' | ') : 'Not added';
+                } else if (field === 'previousPoliciesSummary') {
+                  displayValue = form.previousPolicies && form.previousPolicies.length
+                    ? form.previousPolicies.map((p, i) => `#${i + 1}: ${p.policyNumber || 'No #'} (${p.planTerm || 'Plan'}, ₹${p.sumAssured || 0})`).join('; ')
+                    : 'None recorded';
+                } else if (field === 'premium' || field === 'sumAssured' || field === 'annualIncome' || field === 'lyIncome1' || field === 'lyIncome2' || field === 'lyIncome3' || field === 'husbandAnnualIncome' || field === 'bocAmount') {
+                  displayValue = displayValue ? formatMoney(displayValue) : displayValue === 0 ? '₹ 0' : 'Not added';
+                }
+
+                return (
+                  <div className={fieldErrors[field] ? 'review-field has-error' : 'review-field'} key={field}>
+                    <dt>{label}</dt>
+                    <dd>{displayValue || 'Not added'}</dd>
+                  </div>
+                );
               })}
             </dl>
           </section>
         ))}
       </div>
-      <div className="review-ready"><span className="ready-mark"><Icon name={isGuest ? 'info' : 'shield'} size={18} /></span><div><strong>Ready for a careful submit?</strong><p>{isGuest ? isAnonymousGuest ? 'This record will sync securely so your agent can review it. Your guest access remains tied to this browser.' : 'Submitting will create a temporary anonymous Firebase account and send this record securely to your agent.' : 'This record will be visible to the agent workspace and to the customer who owns it.'}</p></div></div>
+      <div className="review-ready">
+        <span className="ready-mark"><Icon name={isGuest ? 'info' : 'shield'} size={18} /></span>
+        <div>
+          <strong>Ready for a careful submit?</strong>
+          <p>
+            {isGuest
+              ? isAnonymousGuest
+                ? 'This record will sync securely so your agent can review it. Your guest access remains tied to this browser.'
+                : 'Submitting will create a temporary anonymous Firebase account and send this record securely to your agent.'
+              : 'This record will be visible to the agent workspace and to the customer who owns it.'}
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1229,17 +1767,167 @@ function RecordDrawer({ record, onClose, onEdit }) {
       <button aria-label="Close record details" className="drawer-backdrop" onClick={onClose} type="button" />
       <aside aria-labelledby="drawer-title" className="record-drawer" role="dialog">
         <div className="drawer-header">
-        <div><span className="drawer-label">{record.caseNumber || record.id}</span><h2 id="drawer-title">{record.applicantName || 'Unnamed applicant'}</h2></div>
+          <div>
+            <span className="drawer-label">{record.caseNumber || record.id}</span>
+            <h2 id="drawer-title">{record.applicantName || 'Unnamed applicant'}</h2>
+          </div>
           <button aria-label="Close details" className="icon-button" onClick={onClose} type="button"><Icon name="close" size={18} /></button>
         </div>
-        <div className="drawer-summary"><StatusBadge status={record.status} /><span>{formatDate(record.updatedAt)}</span><span>{record.planName || 'Plan not selected'}</span></div>
-        <div className="drawer-content">
-          <div className="drawer-total"><span>Sum assured</span><strong>{formatMoney(record.sumAssured)}</strong><small>{formatMoney(record.premium)} {data.premiumMode?.toLowerCase() || 'annual'} premium</small></div>
-          <div className="drawer-section"><span className="drawer-section-label">Applicant</span><dl><div><dt>Date of birth</dt><dd>{formatDate(data.dateOfBirth)}</dd></div><div><dt>Mobile</dt><dd>{data.mobile || 'Not added'}</dd></div><div><dt>Email</dt><dd>{data.email || 'Not added'}</dd></div><div><dt>Occupation</dt><dd>{data.occupation || 'Not added'}</dd></div></dl></div>
-          <div className="drawer-section"><span className="drawer-section-label">Nominee</span><dl>{(data.nominees || []).map((nominee, index) => <div key={`${nominee.name}-${index}`}><dt>{nominee.relation || 'Nominee'} · {nominee.share || 0}%</dt><dd>{nominee.name || 'Not added'}</dd></div>)}</dl></div>
-          <div className="drawer-section"><span className="drawer-section-label">Ownership & submission</span><dl><div><dt>Applicant / owner</dt><dd>{record.ownerName || 'Not added'}</dd></div><div><dt>Submitted by</dt><dd>{record.submittedByName || record.ownerName || 'Unknown user'}</dd></div>{record.submittedByEmail && <div><dt>Email</dt><dd>{record.submittedByEmail}</dd></div>}</dl></div>
+        <div className="drawer-summary">
+          <StatusBadge status={record.status} />
+          <span>{formatDate(record.updatedAt)}</span>
+          <span>{record.planName || 'Plan not selected'}</span>
         </div>
-        <div className="drawer-footer"><button className="button button-secondary" onClick={onClose} type="button">Close</button><button className="button button-primary" onClick={() => onEdit(record)} type="button"><Icon name="edit" size={15} /> Edit record</button></div>
+        <div className="drawer-content">
+          <div className="drawer-total">
+            <span>Sum assured</span>
+            <strong>{formatMoney(record.sumAssured)}</strong>
+            <small>{formatMoney(record.premium)} {data.premiumMode?.toLowerCase() || 'annual'} premium · Term: {data.policyTerm || data.ppt || '-'} yrs · PPT: {data.ppt || '-'} yrs</small>
+          </div>
+
+          <div className="drawer-section">
+            <span className="drawer-section-label">Applicant & Identity</span>
+            <dl>
+              <div><dt>Full Name</dt><dd>{data.fullName || record.applicantName || 'Not added'}</dd></div>
+              {data.proposerName && <div><dt>Proposer Name</dt><dd>{data.proposerName}</dd></div>}
+              <div><dt>Father's Name</dt><dd>{data.fatherName || 'Not added'}</dd></div>
+              <div><dt>Mother's Name</dt><dd>{data.motherName || 'Not added'}</dd></div>
+              <div><dt>Date of birth</dt><dd>{formatDate(data.dateOfBirth)}</dd></div>
+              <div><dt>Age (Near LB)</dt><dd>{data.age || 'Not added'}</dd></div>
+              {data.birthPlace && <div><dt>Birth Place</dt><dd>{data.birthPlace}</dd></div>}
+              <div><dt>Gender / Marital</dt><dd>{data.gender || '-'} · {data.maritalStatus || '-'}</dd></div>
+              {data.spouseName && <div><dt>Spouse</dt><dd>{data.spouseName} {data.marriageDate ? `(m. ${data.marriageDate})` : ''}</dd></div>}
+              <div><dt>Residential Status</dt><dd>{data.residentialStatus || 'Resident Indian'}</dd></div>
+              <div><dt>Aadhaar Number</dt><dd>{data.aadhaar || 'Not added'}</dd></div>
+              <div><dt>PAN Number</dt><dd>{data.pan || 'Not added'}</dd></div>
+              {data.ckyc && <div><dt>CKYC Number</dt><dd>{data.ckyc}</dd></div>}
+              {data.abha && <div><dt>ABHA ID</dt><dd>{data.abha}</dd></div>}
+            </dl>
+          </div>
+
+          <div className="drawer-section">
+            <span className="drawer-section-label">Contact & Address</span>
+            <dl>
+              <div><dt>Primary Mobile</dt><dd>{data.mobile || 'Not added'}</dd></div>
+              {data.mobileAadhaar && <div><dt>Aadhaar Mobile</dt><dd>{data.mobileAadhaar}</dd></div>}
+              {data.whatsapp && <div><dt>WhatsApp</dt><dd>{data.whatsapp}</dd></div>}
+              <div><dt>Email</dt><dd>{data.email || 'Not added'}</dd></div>
+              <div><dt>KYC Address</dt><dd>{data.address || 'Not added'}</dd></div>
+              <div><dt>Correspondence Address</dt><dd>{data.corrAddress || 'Same as KYC'}</dd></div>
+              <div><dt>City / State / PIN</dt><dd>{[data.city, data.state, data.pincode].filter(Boolean).join(', ') || 'Not added'}</dd></div>
+            </dl>
+          </div>
+
+          <div className="drawer-section">
+            <span className="drawer-section-label">Work & Income</span>
+            <dl>
+              <div><dt>Education</dt><dd>{data.education || 'Not added'}</dd></div>
+              <div><dt>Occupation</dt><dd>{data.occupation || 'Not added'}</dd></div>
+              <div><dt>Nature of duty</dt><dd>{data.typeOfDuty || 'Not added'}</dd></div>
+              <div><dt>Employer</dt><dd>{data.employer || 'Not added'} {data.since ? `(Since: ${data.since})` : ''}</dd></div>
+              {data.totalExperience && <div><dt>Total Experience</dt><dd>{data.totalExperience}</dd></div>}
+              <div><dt>Annual Income</dt><dd>{formatMoney(data.annualIncome)}</dd></div>
+              {(data.lyIncome1 || data.lyIncome2 || data.lyIncome3) && (
+                <div><dt>Last 3 Years</dt><dd>{[data.lyIncome1, data.lyIncome2, data.lyIncome3].filter(Boolean).map(formatMoney).join(' · ')}</dd></div>
+              )}
+              {data.husbandOccupation && (
+                <div><dt>Husband Details</dt><dd>{data.husbandOccupation} ({formatMoney(data.husbandAnnualIncome)})</dd></div>
+              )}
+            </dl>
+          </div>
+
+          <div className="drawer-section">
+            <span className="drawer-section-label">Proposed Plan</span>
+            <dl>
+              <div><dt>Plan</dt><dd>{data.planName || 'Not selected'}</dd></div>
+              {data.planNumber && <div><dt>Policy / Plan No</dt><dd>{data.planNumber}</dd></div>}
+              <div><dt>Term / PPT</dt><dd>{data.policyTerm || data.ppt || '-'} yrs / {data.ppt || '-'} yrs</dd></div>
+              <div><dt>Sum Assured / Premium</dt><dd>{formatMoney(data.sumAssured)} / {formatMoney(data.premium)} ({data.premiumMode || 'Yearly'})</dd></div>
+              {data.termRider && <div><dt>Term Rider</dt><dd>{data.termRider}</dd></div>}
+              {data.accidentalBenefit && <div><dt>Accidental Benefit</dt><dd>{data.accidentalBenefit}</dd></div>}
+              {data.pwb && <div><dt>PWB</dt><dd>{data.pwb}</dd></div>}
+              {data.datingBack && <div><dt>Dating Back</dt><dd>{data.datingBack} ({data.datingBackDate || 'Date not set'})</dd></div>}
+              {data.bocNumber && <div><dt>BOC Details</dt><dd>#{data.bocNumber} {data.bocDate ? `(${data.bocDate})` : ''} {data.bocAmount ? `- ${formatMoney(data.bocAmount)}` : ''}</dd></div>}
+              {data.commencementDate && <div><dt>DOC</dt><dd>{formatDate(data.commencementDate)}</dd></div>}
+            </dl>
+          </div>
+
+          <div className="drawer-section">
+            <span className="drawer-section-label">Nominees & Appointee</span>
+            <dl>
+              {(data.nominees || []).map((nominee, index) => (
+                <div key={`${nominee.name}-${index}`}>
+                  <dt>{nominee.relation || 'Nominee'} · {nominee.share || 0}%</dt>
+                  <dd>{nominee.name || 'Unnamed'} {nominee.dob ? `(DOB: ${formatDate(nominee.dob)})` : nominee.age ? `(Age: ${nominee.age})` : ''} {nominee.aadhaar ? `· Aadhaar: ${nominee.aadhaar}` : ''} {nominee.phone ? `· Ph: ${nominee.phone}` : ''}</dd>
+                </div>
+              ))}
+              {data.appointeeName && (
+                <div>
+                  <dt>Appointee ({data.appointeeRelation || 'Relation'})</dt>
+                  <dd>{data.appointeeName} (Age: {data.appointeeAge || 'N/A'})</dd>
+                </div>
+              )}
+            </dl>
+          </div>
+
+          <div className="drawer-section">
+            <span className="drawer-section-label">Bank Details</span>
+            <dl>
+              <div><dt>Bank Name</dt><dd>{data.bankName || 'Not added'}</dd></div>
+              <div><dt>Account Holder</dt><dd>{data.accountHolderName || data.fullName || 'Not added'}</dd></div>
+              <div><dt>Account Number</dt><dd>{data.accountNumber || 'Not added'}</dd></div>
+              <div><dt>Account Type</dt><dd>{data.accountType || 'Savings'}</dd></div>
+              <div><dt>IFSC / MICR</dt><dd>{data.ifsc || 'Not added'}{data.micr ? ` / ${data.micr}` : ''}</dd></div>
+              {data.bankAddress && <div><dt>Branch Address</dt><dd>{data.bankAddress}</dd></div>}
+            </dl>
+          </div>
+
+          <div className="drawer-section">
+            <span className="drawer-section-label">Family & Personal Health</span>
+            <dl>
+              <div><dt>Father</dt><dd>{data.fatherHealth || 'Good'} (Age: {data.fatherAge || 'N/A'}{data.fatherHealth === 'Dead' ? `, Died Age: ${data.fatherDiedAge || 'N/A'}, Cause: ${data.fatherDiedCause || 'N/A'}` : ''})</dd></div>
+              <div><dt>Mother</dt><dd>{data.motherHealth || 'Good'} (Age: {data.motherAge || 'N/A'}{data.motherHealth === 'Dead' ? `, Died Age: ${data.motherDiedAge || 'N/A'}, Cause: ${data.motherDiedCause || 'N/A'}` : ''})</dd></div>
+              {data.spouseHealth && <div><dt>Spouse</dt><dd>{data.spouseHealth} (Age: {data.spouseAge || 'N/A'}{data.spouseHealth === 'Dead' ? `, Died Age: ${data.spouseDiedAge || 'N/A'}, Cause: ${data.spouseDiedCause || 'N/A'}` : ''})</dd></div>}
+              {data.siblings?.length > 0 && (
+                <div><dt>Siblings ({data.siblings.length})</dt><dd>{data.siblings.map((s, i) => `${s.relation || 'Sibling'}: ${s.health || 'Good'}, ${s.age || s.diedAge || 'N/A'} yrs`).join('; ')}</dd></div>
+              )}
+              {data.children?.length > 0 && (
+                <div><dt>Children ({data.children.length})</dt><dd>{data.children.map((c, i) => `Child ${i + 1}: ${c.health || 'Good'}, ${c.age || c.diedAge || 'N/A'} yrs`).join('; ')}</dd></div>
+              )}
+              <div><dt>Height / Weight / Abdomen</dt><dd>{data.height ? `${data.height} cm` : '-'} / {data.weight ? `${data.weight} kg` : '-'} / {data.abdomen ? `${data.abdomen} cm` : '-'}</dd></div>
+              {data.operations && <div><dt>Operations</dt><dd>{data.operations} {data.operationsDetails ? `(${data.operationsDetails})` : ''}</dd></div>}
+              {data.disease && <div><dt>Diseases</dt><dd>{data.disease} {data.diseaseDetails ? `(${data.diseaseDetails})` : ''}</dd></div>}
+              {data.pregnancy && <div><dt>Pregnancy</dt><dd>{data.pregnancy} {data.lastDelivery ? `(Last delivery: ${data.lastDelivery})` : ''}</dd></div>}
+            </dl>
+          </div>
+
+          {data.previousPolicies?.length > 0 && (
+            <div className="drawer-section">
+              <span className="drawer-section-label">Previous Policies ({data.previousPolicies.length})</span>
+              <dl>
+                {data.previousPolicies.map((p, index) => (
+                  <div key={`prev-draw-${index}`}>
+                    <dt>Policy #{p.policyNumber || (index + 1)} · {p.planTerm || 'Plan'}</dt>
+                    <dd>{formatMoney(p.sumAssured)} cover · {formatMoney(p.premium)} premium · Mode: {p.mode || 'Yearly'} · Status: {p.inforce || 'In force'} {p.commencementDate ? `· DOC: ${formatDate(p.commencementDate)}` : ''}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          )}
+
+          <div className="drawer-section">
+            <span className="drawer-section-label">Ownership & submission</span>
+            <dl>
+              <div><dt>Applicant / owner</dt><dd>{record.ownerName || 'Not added'}</dd></div>
+              <div><dt>Submitted by</dt><dd>{record.submittedByName || record.ownerName || 'Unknown user'}</dd></div>
+              {record.submittedByEmail && <div><dt>Email</dt><dd>{record.submittedByEmail}</dd></div>}
+            </dl>
+          </div>
+        </div>
+        <div className="drawer-footer">
+          <button className="button button-secondary" onClick={onClose} type="button">Close</button>
+          <button className="button button-primary" onClick={() => onEdit(record)} type="button"><Icon name="edit" size={15} /> Edit record</button>
+        </div>
       </aside>
     </div>
   );
@@ -1540,11 +2228,28 @@ function App() {
   }
 
   function handleChange(field, value) {
-    setForm((current) => ({
-      ...current,
-      [field]: field === 'dateOfBirth' ? value : value,
-      ...(field === 'dateOfBirth' ? { age: calculateAge(value) } : {}),
-    }));
+    setForm((current) => {
+      const updated = {
+        ...current,
+        [field]: value,
+      };
+
+      if (field === 'dateOfBirth') {
+        updated.age = calculateAge(value);
+      }
+
+      if (field === 'corrSameKyc') {
+        if (value) {
+          updated.corrAddress = current.address;
+        }
+      }
+
+      if (field === 'address' && current.corrSameKyc) {
+        updated.corrAddress = value;
+      }
+
+      return updated;
+    });
     setFieldErrors((current) => {
       const next = { ...current };
       delete next[field];
@@ -1555,7 +2260,7 @@ function App() {
   function handleRepeaterChange(type, index, field, value) {
     setForm((current) => ({
       ...current,
-      [type]: current[type].map((item, itemIndex) => itemIndex === index ? { ...item, [field]: value } : item),
+      [type]: current[type].map((item, itemIndex) => (itemIndex === index ? { ...item, [field]: value } : item)),
     }));
     setFieldErrors((current) => {
       const next = { ...current };
@@ -1567,10 +2272,22 @@ function App() {
 
   function handleAddRepeater(type) {
     const templates = {
-      nominees: { name: '', relation: '', share: '0', age: '', phone: '' },
-      siblings: { relation: 'Brother', age: '', health: 'Alive' },
-      children: { age: '', health: 'Alive' },
-      previousPolicies: { policyNumber: '', branch: '', planTerm: '', sumAssured: '', premium: '', inforce: 'In force' },
+      nominees: { name: '', relation: '', share: '0', dob: '', age: '', aadhaar: '', phone: '' },
+      siblings: { relation: 'Brother', age: '', health: 'Good', diedAge: '', diedYear: '', diedCause: '' },
+      children: { age: '', health: 'Good', diedAge: '', diedYear: '', diedCause: '' },
+      previousPolicies: {
+        policyNumber: '',
+        branch: '',
+        planTerm: '',
+        sumAssured: '',
+        premium: '',
+        mode: 'Yearly',
+        accidentalBenefit: '',
+        commencementDate: '',
+        rateAccepted: 'Ordinary Rate',
+        medicalType: 'Medical',
+        inforce: 'Yes',
+      },
     };
     setForm((current) => ({ ...current, [type]: [...current[type], templates[type]] }));
   }
