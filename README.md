@@ -124,6 +124,8 @@ The helper preserves any existing custom claims and adds `agent: true`. The agen
 
 Each saved record keeps the applicant/owner fields separate from the person who saved or submitted it: `submittedById`, `submittedByName`, `submittedByEmail`, `submittedByMode`, and `submittedAt`. Agents see the authenticated login name beside the case number and in the record detail drawer. Anonymous guest submissions use the applicant name entered in the form because there is no recoverable account identity.
 
+When an older or imported record is edited and lacks submission metadata, the save path fills the missing metadata from the current session instead of sending undefined Firestore fields. Its submitted date remains unknown; editing it updates only `updatedAt` and never treats the import time as a historical submission date.
+
 The records table sorts by `submittedAt` by default. Legacy JSON imports that do not contain a submitted date remain visibly undated; when sorting by Submitted, those records stay in their original JSON appearance order rather than receiving synthetic dates.
 
 Search, status filters, and sorting are applied before pagination. The table shows 10 records per page by default, with 25 and 50 row options; bulk selection remains available across pages.

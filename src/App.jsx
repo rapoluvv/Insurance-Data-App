@@ -2896,6 +2896,10 @@ function App() {
       : session?.mode === 'guest'
         ? 'local-guest'
         : 'authenticated';
+    const isLegacyImportedRecord = existing && (
+      Number.isInteger(existing.importOrder)
+      || (!existing.submissionMode && !existing.submittedAt)
+    );
     const recordId = editingId || createRecordId();
     const caseNumber = existing?.caseNumber || (editingId ? existing?.id || recordId : createCaseNumber());
     return {
@@ -2911,16 +2915,16 @@ function App() {
       invitedByName: existing?.invitedByName || inviteContext.invitedByName || '',
       inviteId: existing?.inviteId || inviteContext.inviteId || '',
       submittedById: existing?.submittedById || session?.id || user.id,
-      submittedByName: existing?.submittedById ? existing.submittedByName : submittedByName,
-      submittedByEmail: existing?.submittedById ? existing.submittedByEmail || '' : session?.email || '',
-      submittedByMode: existing?.submittedById ? existing.submittedByMode : submittedByMode,
+      submittedByName: existing?.submittedByName || submittedByName,
+      submittedByEmail: existing?.submittedByEmail || session?.email || '',
+      submittedByMode: existing?.submittedByMode || submittedByMode,
       applicantName: form.fullName || 'Unnamed applicant',
       planName: form.planName || 'Plan not selected',
       premium: Number(form.premium || 0),
       sumAssured: Number(form.sumAssured || 0),
       status,
       submissionMode: submittedByMode,
-      submittedAt: status === 'submitted' ? existing?.submittedAt || now : existing?.submittedAt || null,
+      submittedAt: existing?.submittedAt || (status === 'submitted' && !isLegacyImportedRecord ? now : null),
       updatedAt: now,
       formData: form,
     };
