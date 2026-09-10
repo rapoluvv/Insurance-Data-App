@@ -2110,170 +2110,353 @@ function ReviewPanel({ form, fieldErrors, isAnonymousGuest, isGuest, onStepChang
   );
 }
 
+const DRAWER_PLACEHOLDERS = new Set([
+  '-',
+  '—',
+  'Date not set',
+  'No date',
+  'No #',
+  'N/A',
+  'Not added',
+  'Not recorded',
+  'Not selected',
+  'Not specified',
+  'None added',
+  'None recorded',
+  'Plan',
+  'Plan not selected',
+  'Proposed Plan',
+  'Unknown user',
+  'Guest',
+  'Guest user',
+  'Agent',
+  'Unnamed customer',
+  'Unnamed',
+  'Unnamed applicant',
+]);
+
+function hasDrawerValue(value) {
+  if (value === null || value === undefined) return false;
+  if (typeof value === 'string') {
+    const normalized = value.trim();
+    return normalized !== '' && !DRAWER_PLACEHOLDERS.has(normalized);
+  }
+  return true;
+}
+
+function getDrawerDate(value) {
+  return getDateTimestamp(value) === null ? null : formatDate(value);
+}
+
+function getDrawerMoney(value) {
+  if (!hasDrawerValue(value) || Number(value) === 0) return null;
+  return formatMoney(value);
+}
+
+function joinDrawerValues(values, separator = ' · ') {
+  const presentValues = values.filter(hasDrawerValue);
+  return presentValues.length ? presentValues.join(separator) : null;
+}
+
+function getDrawerHealthValue(health, age, diedAge, diedYear, diedCause) {
+  const details = [];
+  if (hasDrawerValue(health)) details.push(health);
+  if (hasDrawerValue(age)) details.push(`Age: ${age}`);
+  if (health === 'Dead') {
+    if (hasDrawerValue(diedAge)) details.push(`Died age: ${diedAge}`);
+    if (hasDrawerValue(diedYear)) details.push(`Died year: ${diedYear}`);
+    if (hasDrawerValue(diedCause)) details.push(`Cause: ${diedCause}`);
+  }
+  return joinDrawerValues(details);
+}
+
+function drawerRow(label, value, key) {
+  if (!hasDrawerValue(value)) return null;
+  return (
+    <div key={key}>
+      <dt>{label}</dt>
+      <dd>{value}</dd>
+    </div>
+  );
+}
+
+function DrawerSection({ label, rows }) {
+  const visibleRows = rows.filter(Boolean);
+  if (!visibleRows.length) return null;
+  return (
+    <div className="drawer-section">
+      <span className="drawer-section-label">{label}</span>
+      <dl>{visibleRows}</dl>
+    </div>
+  );
+}
+
 function RecordDrawer({ record, onClose, onEdit }) {
   if (!record) return null;
   const data = record.formData || {};
+  const applicantName = data.fullName || record.applicantName;
+  const updatedDate = getDrawerDate(record.updatedAt);
+  const planName = data.planName || record.planName;
+  const sumAssured = getDrawerMoney(record.sumAssured || data.sumAssured);
+  const premium = getDrawerMoney(record.premium || data.premium);
+  const totalMeta = [
+    sumAssured && premium ? `${premium} ${data.premiumMode?.toLowerCase() || 'annual'} premium` : null,
+    data.policyTerm ? `Term: ${data.policyTerm} yrs` : null,
+    data.ppt ? `PPT: ${data.ppt} yrs` : null,
+  ].filter(Boolean).join(' · ');
+  const totalHeadline = sumAssured || premium;
+  const totalLabel = sumAssured ? 'Sum assured' : 'Premium';
+  const genderMarital = joinDrawerValues([data.gender, data.maritalStatus]);
+  const marriageDate = getDrawerDate(data.marriageDate);
+  const spouse = data.spouseName
+    ? joinDrawerValues([data.spouseName, marriageDate ? `(m. ${marriageDate})` : null], ' ')
+    : null;
+  const location = joinDrawerValues([data.city, data.state, data.pincode], ', ');
+  const lastThreeIncome = [data.lyIncome1, data.lyIncome2, data.lyIncome3]
+    .map(getDrawerMoney)
+    .filter(Boolean)
+    .join(' · ');
+  const termAndPpt = joinDrawerValues([
+    data.policyTerm ? `Term: ${data.policyTerm} yrs` : null,
+    data.ppt ? `PPT: ${data.ppt} yrs` : null,
+  ]);
+  const planSumAssured = getDrawerMoney(data.sumAssured);
+  const planPremium = getDrawerMoney(data.premium);
+  const planAmounts = joinDrawerValues([
+    planSumAssured ? `Sum assured: ${planSumAssured}` : null,
+    planPremium ? `${planPremium} ${data.premiumMode?.toLowerCase() || 'annual'} premium` : null,
+  ]);
+  const datingBackDate = getDrawerDate(data.datingBackDate);
+  const datingBack = data.datingBack
+    ? joinDrawerValues([data.datingBack, datingBackDate ? `Date: ${datingBackDate}` : null])
+    : null;
+  const bocDate = getDrawerDate(data.bocDate);
+  const bocDetails = joinDrawerValues([
+    data.bocNumber ? `#${data.bocNumber}` : null,
+    bocDate,
+    data.bocAmount ? getDrawerMoney(data.bocAmount) : null,
+  ]);
+  const nominees = (data.nominees || []).filter((nominee) => [
+    nominee.name,
+    nominee.relation,
+    nominee.dob,
+    nominee.age,
+    nominee.aadhaar,
+    nominee.phone,
+  ].some(hasDrawerValue));
+  const previousPolicies = (data.previousPolicies || []).filter((policy) => [
+    policy.policyNumber,
+    policy.branch,
+    policy.planTerm,
+    getDrawerMoney(policy.sumAssured),
+    getDrawerMoney(policy.premium),
+    policy.accidentalBenefit,
+    getDrawerDate(policy.commencementDate),
+  ].some(hasDrawerValue));
+  const father = getDrawerHealthValue(data.fatherHealth, data.fatherAge, data.fatherDiedAge, data.fatherDiedYear, data.fatherDiedCause);
+  const mother = getDrawerHealthValue(data.motherHealth, data.motherAge, data.motherDiedAge, data.motherDiedYear, data.motherDiedCause);
+  const spouseHealth = getDrawerHealthValue(data.spouseHealth, data.spouseAge, data.spouseDiedAge, data.spouseDiedYear, data.spouseDiedCause);
+  const bodyMetrics = joinDrawerValues([
+    data.height ? `${data.height} cm` : null,
+    data.weight ? `${data.weight} kg` : null,
+    data.abdomen ? `${data.abdomen} cm` : null,
+  ]);
+  const ifscMicr = joinDrawerValues([data.ifsc, data.micr], ' / ');
+  const drawerLabel = record.caseNumber || record.id;
+
   return (
     <div className="drawer-layer" role="presentation">
       <button aria-label="Close record details" className="drawer-backdrop" onClick={onClose} type="button" />
       <aside aria-labelledby="drawer-title" className="record-drawer" role="dialog">
         <div className="drawer-header">
           <div>
-            <span className="drawer-label">{record.caseNumber || record.id}</span>
-            <h2 id="drawer-title">{record.applicantName || 'Unnamed applicant'}</h2>
+            {hasDrawerValue(drawerLabel) && <span className="drawer-label">{drawerLabel}</span>}
+            <h2 id="drawer-title">{hasDrawerValue(applicantName) ? applicantName : 'Record details'}</h2>
           </div>
           <button aria-label="Close details" className="icon-button" onClick={onClose} type="button"><Icon name="close" size={18} /></button>
         </div>
         <div className="drawer-summary">
-          <StatusBadge status={record.status} />
-          <span>{formatDate(record.updatedAt)}</span>
-          <span>{record.planName || 'Plan not selected'}</span>
+          {record.status && <StatusBadge status={record.status} />}
+          {updatedDate && <span>{updatedDate}</span>}
+          {hasDrawerValue(planName) && <span>{planName}</span>}
         </div>
         <div className="drawer-content">
-          <div className="drawer-total">
-            <span>Sum assured</span>
-            <strong>{formatMoney(record.sumAssured)}</strong>
-            <small>{formatMoney(record.premium)} {data.premiumMode?.toLowerCase() || 'annual'} premium · Term: {data.policyTerm || data.ppt || '-'} yrs · PPT: {data.ppt || '-'} yrs</small>
-          </div>
-
-          <div className="drawer-section">
-            <span className="drawer-section-label">Applicant & Identity</span>
-            <dl>
-              <div><dt>Full Name</dt><dd>{data.fullName || record.applicantName || 'Not added'}</dd></div>
-              {data.proposerName && <div><dt>Proposer Name</dt><dd>{data.proposerName}</dd></div>}
-              <div><dt>Father's Name</dt><dd>{data.fatherName || 'Not added'}</dd></div>
-              <div><dt>Mother's Name</dt><dd>{data.motherName || 'Not added'}</dd></div>
-              <div><dt>Date of birth</dt><dd>{formatDate(data.dateOfBirth)}</dd></div>
-              <div><dt>Age (Near LB)</dt><dd>{data.age || 'Not added'}</dd></div>
-              {data.birthPlace && <div><dt>Birth Place</dt><dd>{data.birthPlace}</dd></div>}
-              <div><dt>Gender / Marital</dt><dd>{data.gender || '-'} · {data.maritalStatus || '-'}</dd></div>
-              {data.spouseName && <div><dt>Spouse</dt><dd>{data.spouseName} {data.marriageDate ? `(m. ${data.marriageDate})` : ''}</dd></div>}
-              <div><dt>Residential Status</dt><dd>{data.residentialStatus || 'Resident Indian'}</dd></div>
-              <div><dt>Aadhaar Number</dt><dd>{data.aadhaar || 'Not added'}</dd></div>
-              <div><dt>PAN Number</dt><dd>{data.pan || 'Not added'}</dd></div>
-              {data.ckyc && <div><dt>CKYC Number</dt><dd>{data.ckyc}</dd></div>}
-              {data.abha && <div><dt>ABHA ID</dt><dd>{data.abha}</dd></div>}
-            </dl>
-          </div>
-
-          <div className="drawer-section">
-            <span className="drawer-section-label">Contact & Address</span>
-            <dl>
-              <div><dt>Primary Mobile</dt><dd>{data.mobile || 'Not added'}</dd></div>
-              {data.mobileAadhaar && <div><dt>Aadhaar Mobile</dt><dd>{data.mobileAadhaar}</dd></div>}
-              {data.whatsapp && <div><dt>WhatsApp</dt><dd>{data.whatsapp}</dd></div>}
-              <div><dt>Email</dt><dd>{data.email || 'Not added'}</dd></div>
-              <div><dt>KYC Address</dt><dd>{data.address || 'Not added'}</dd></div>
-              <div><dt>Correspondence Address</dt><dd>{data.corrAddress || 'Same as KYC'}</dd></div>
-              <div><dt>City / State / PIN</dt><dd>{[data.city, data.state, data.pincode].filter(Boolean).join(', ') || 'Not added'}</dd></div>
-            </dl>
-          </div>
-
-          <div className="drawer-section">
-            <span className="drawer-section-label">Work & Income</span>
-            <dl>
-              <div><dt>Education</dt><dd>{data.education || 'Not added'}</dd></div>
-              <div><dt>Occupation</dt><dd>{data.occupation || 'Not added'}</dd></div>
-              <div><dt>Nature of duty</dt><dd>{data.typeOfDuty || 'Not added'}</dd></div>
-              <div><dt>Employer</dt><dd>{data.employer || 'Not added'} {data.since ? `(Since: ${data.since})` : ''}</dd></div>
-              {data.totalExperience && <div><dt>Total Experience</dt><dd>{data.totalExperience}</dd></div>}
-              <div><dt>Annual Income</dt><dd>{formatMoney(data.annualIncome)}</dd></div>
-              {(data.lyIncome1 || data.lyIncome2 || data.lyIncome3) && (
-                <div><dt>Last 3 Years</dt><dd>{[data.lyIncome1, data.lyIncome2, data.lyIncome3].filter(Boolean).map(formatMoney).join(' · ')}</dd></div>
-              )}
-              {data.husbandOccupation && (
-                <div><dt>Husband Details</dt><dd>{data.husbandOccupation} ({formatMoney(data.husbandAnnualIncome)})</dd></div>
-              )}
-            </dl>
-          </div>
-
-          <div className="drawer-section">
-            <span className="drawer-section-label">Proposed Plan</span>
-            <dl>
-              <div><dt>Plan</dt><dd>{data.planName || 'Not selected'}</dd></div>
-              {data.planNumber && <div><dt>Policy / Plan No</dt><dd>{data.planNumber}</dd></div>}
-              <div><dt>Term / PPT</dt><dd>{data.policyTerm || data.ppt || '-'} yrs / {data.ppt || '-'} yrs</dd></div>
-              <div><dt>Sum Assured / Premium</dt><dd>{formatMoney(data.sumAssured)} / {formatMoney(data.premium)} ({data.premiumMode || 'Yearly'})</dd></div>
-              {data.termRider && <div><dt>Term Rider</dt><dd>{data.termRider}</dd></div>}
-              {data.accidentalBenefit && <div><dt>Accidental Benefit</dt><dd>{data.accidentalBenefit}</dd></div>}
-              {data.pwb && <div><dt>PWB</dt><dd>{data.pwb}</dd></div>}
-              {data.datingBack && <div><dt>Dating Back</dt><dd>{data.datingBack} ({data.datingBackDate || 'Date not set'})</dd></div>}
-              {data.bocNumber && <div><dt>BOC Details</dt><dd>#{data.bocNumber} {data.bocDate ? `(${data.bocDate})` : ''} {data.bocAmount ? `- ${formatMoney(data.bocAmount)}` : ''}</dd></div>}
-              {data.commencementDate && <div><dt>DOC</dt><dd>{formatDate(data.commencementDate)}</dd></div>}
-            </dl>
-          </div>
-
-          <div className="drawer-section">
-            <span className="drawer-section-label">Nominees & Appointee</span>
-            <dl>
-              {(data.nominees || []).map((nominee, index) => (
-                <div key={`${nominee.name}-${index}`}>
-                  <dt>{nominee.relation || 'Nominee'} · {nominee.share || 0}%</dt>
-                  <dd>{nominee.name || 'Unnamed'} {nominee.dob ? `(DOB: ${formatDate(nominee.dob)})` : nominee.age ? `(Age: ${nominee.age})` : ''} {nominee.aadhaar ? `· Aadhaar: ${nominee.aadhaar}` : ''} {nominee.phone ? `· Ph: ${nominee.phone}` : ''}</dd>
-                </div>
-              ))}
-              {data.appointeeName && (
-                <div>
-                  <dt>Appointee ({data.appointeeRelation || 'Relation'})</dt>
-                  <dd>{data.appointeeName} (Age: {data.appointeeAge || 'N/A'})</dd>
-                </div>
-              )}
-            </dl>
-          </div>
-
-          <div className="drawer-section">
-            <span className="drawer-section-label">Bank Details</span>
-            <dl>
-              <div><dt>Bank Name</dt><dd>{data.bankName || 'Not added'}</dd></div>
-              <div><dt>Account Holder</dt><dd>{data.accountHolderName || data.fullName || 'Not added'}</dd></div>
-              <div><dt>Account Number</dt><dd>{data.accountNumber || 'Not added'}</dd></div>
-              <div><dt>Account Type</dt><dd>{data.accountType || 'Savings'}</dd></div>
-              <div><dt>IFSC / MICR</dt><dd>{data.ifsc || 'Not added'}{data.micr ? ` / ${data.micr}` : ''}</dd></div>
-              {data.bankAddress && <div><dt>Branch Address</dt><dd>{data.bankAddress}</dd></div>}
-            </dl>
-          </div>
-
-          <div className="drawer-section">
-            <span className="drawer-section-label">Family & Personal Health</span>
-            <dl>
-              <div><dt>Father</dt><dd>{data.fatherHealth || 'Good'} (Age: {data.fatherAge || 'N/A'}{data.fatherHealth === 'Dead' ? `, Died Age: ${data.fatherDiedAge || 'N/A'}, Cause: ${data.fatherDiedCause || 'N/A'}` : ''})</dd></div>
-              <div><dt>Mother</dt><dd>{data.motherHealth || 'Good'} (Age: {data.motherAge || 'N/A'}{data.motherHealth === 'Dead' ? `, Died Age: ${data.motherDiedAge || 'N/A'}, Cause: ${data.motherDiedCause || 'N/A'}` : ''})</dd></div>
-              {data.spouseHealth && <div><dt>Spouse</dt><dd>{data.spouseHealth} (Age: {data.spouseAge || 'N/A'}{data.spouseHealth === 'Dead' ? `, Died Age: ${data.spouseDiedAge || 'N/A'}, Cause: ${data.spouseDiedCause || 'N/A'}` : ''})</dd></div>}
-              {data.siblings?.length > 0 && (
-                <div><dt>Siblings ({data.siblings.length})</dt><dd>{data.siblings.map((s, i) => `${s.relation || 'Sibling'}: ${s.health || 'Good'}, ${s.age || s.diedAge || 'N/A'} yrs`).join('; ')}</dd></div>
-              )}
-              {data.children?.length > 0 && (
-                <div><dt>Children ({data.children.length})</dt><dd>{data.children.map((c, i) => `Child ${i + 1}: ${c.health || 'Good'}, ${c.age || c.diedAge || 'N/A'} yrs`).join('; ')}</dd></div>
-              )}
-              <div><dt>Height / Weight / Abdomen</dt><dd>{data.height ? `${data.height} cm` : '-'} / {data.weight ? `${data.weight} kg` : '-'} / {data.abdomen ? `${data.abdomen} cm` : '-'}</dd></div>
-              {data.operations && <div><dt>Operations</dt><dd>{data.operations} {data.operationsDetails ? `(${data.operationsDetails})` : ''}</dd></div>}
-              {data.disease && <div><dt>Diseases</dt><dd>{data.disease} {data.diseaseDetails ? `(${data.diseaseDetails})` : ''}</dd></div>}
-              {data.pregnancy && <div><dt>Pregnancy</dt><dd>{data.pregnancy} {data.lastDelivery ? `(Last delivery: ${data.lastDelivery})` : ''}</dd></div>}
-            </dl>
-          </div>
-
-          {data.previousPolicies?.length > 0 && (
-            <div className="drawer-section">
-              <span className="drawer-section-label">Previous Policies ({data.previousPolicies.length})</span>
-              <dl>
-                {data.previousPolicies.map((p, index) => (
-                  <div key={`prev-draw-${index}`}>
-                    <dt>Policy #{p.policyNumber || (index + 1)} · {p.planTerm || 'Plan'}</dt>
-                    <dd>{formatMoney(p.sumAssured)} cover · {formatMoney(p.premium)} premium · Mode: {p.mode || 'Yearly'} · Status: {p.inforce || 'In force'} {p.commencementDate ? `· DOC: ${formatDate(p.commencementDate)}` : ''}</dd>
-                  </div>
-                ))}
-              </dl>
+          {totalHeadline && (
+            <div className="drawer-total">
+              <span>{totalLabel}</span>
+              <strong>{totalHeadline}</strong>
+              {totalMeta && <small>{totalMeta}</small>}
             </div>
           )}
 
-          <div className="drawer-section">
-            <span className="drawer-section-label">Ownership & submission</span>
-            <dl>
-              <div><dt>Applicant / owner</dt><dd>{record.ownerName || 'Not added'}</dd></div>
-              <div><dt>Submitted by</dt><dd>{record.submittedByName || record.ownerName || 'Unknown user'}</dd></div>
-              {record.submittedByEmail && <div><dt>Email</dt><dd>{record.submittedByEmail}</dd></div>}
-            </dl>
-          </div>
+          <DrawerSection
+            label="Applicant & Identity"
+            rows={[
+              drawerRow('Full Name', data.fullName || record.applicantName, 'full-name'),
+              drawerRow('Proposer Name', data.proposerName, 'proposer-name'),
+              drawerRow("Father's Name", data.fatherName, 'father-name'),
+              drawerRow("Mother's Name", data.motherName, 'mother-name'),
+              drawerRow('Date of birth', getDrawerDate(data.dateOfBirth), 'date-of-birth'),
+              drawerRow('Age (Near LB)', data.age, 'age'),
+              drawerRow('Birth Place', data.birthPlace, 'birth-place'),
+              drawerRow('Gender / Marital', genderMarital, 'gender-marital'),
+              drawerRow('Spouse', spouse, 'spouse'),
+              drawerRow('Residential Status', data.residentialStatus, 'residential-status'),
+              drawerRow('Aadhaar Number', data.aadhaar, 'aadhaar'),
+              drawerRow('PAN Number', data.pan, 'pan'),
+              drawerRow('CKYC Number', data.ckyc, 'ckyc'),
+              drawerRow('ABHA ID', data.abha, 'abha'),
+            ]}
+          />
+
+          <DrawerSection
+            label="Contact & Address"
+            rows={[
+              drawerRow('Primary Mobile', data.mobile, 'primary-mobile'),
+              drawerRow('Aadhaar Mobile', data.mobileAadhaar, 'aadhaar-mobile'),
+              drawerRow('WhatsApp', data.whatsapp, 'whatsapp'),
+              drawerRow('Email', data.email, 'email'),
+              drawerRow('KYC Address', data.address, 'kyc-address'),
+              drawerRow('Correspondence Address', data.corrAddress || (data.corrSameKyc ? 'Same as KYC' : null), 'correspondence-address'),
+              drawerRow('City / State / PIN', location, 'location'),
+            ]}
+          />
+
+          <DrawerSection
+            label="Work & Income"
+            rows={[
+              drawerRow('Education', data.education, 'education'),
+              drawerRow('Occupation', data.occupation, 'occupation'),
+              drawerRow('Nature of duty', data.typeOfDuty, 'nature-of-duty'),
+              drawerRow('Employer', data.employer, 'employer'),
+              drawerRow('Since', data.since, 'since'),
+              drawerRow('Total Experience', data.totalExperience, 'total-experience'),
+              drawerRow('Annual Income', getDrawerMoney(data.annualIncome), 'annual-income'),
+              drawerRow('Last 3 Years', lastThreeIncome, 'last-three-years'),
+              drawerRow('Husband Details', joinDrawerValues([data.husbandOccupation, getDrawerMoney(data.husbandAnnualIncome)]), 'husband-details'),
+            ]}
+          />
+
+          <DrawerSection
+            label="Proposed Plan"
+            rows={[
+              drawerRow('Plan', planName, 'plan'),
+              drawerRow('Policy / Plan No', data.planNumber, 'plan-number'),
+              drawerRow('Term / PPT', termAndPpt, 'term-ppt'),
+              drawerRow('Sum Assured / Premium', planAmounts, 'plan-amounts'),
+              drawerRow('Term Rider', data.termRider, 'term-rider'),
+              drawerRow('Accidental Benefit', data.accidentalBenefit, 'accidental-benefit'),
+              drawerRow('PWB', data.pwb, 'pwb'),
+              drawerRow('Dating Back', datingBack, 'dating-back'),
+              drawerRow('BOC Details', bocDetails, 'boc-details'),
+              drawerRow('DOC', getDrawerDate(data.commencementDate), 'doc'),
+            ]}
+          />
+
+          <DrawerSection
+            label="Nominees & Appointee"
+            rows={[
+              ...nominees.map((nominee, index) => drawerRow(
+                `Nominee ${index + 1}`,
+                joinDrawerValues([
+                  nominee.name,
+                  nominee.relation,
+                  nominee.share ? `${nominee.share}%` : null,
+                  getDrawerDate(nominee.dob) ? `DOB: ${getDrawerDate(nominee.dob)}` : nominee.age ? `Age: ${nominee.age}` : null,
+                  nominee.aadhaar ? `Aadhaar: ${nominee.aadhaar}` : null,
+                  nominee.phone ? `Ph: ${nominee.phone}` : null,
+                ]),
+                `nominee-${index}`,
+              )),
+              drawerRow(
+                'Appointee',
+                joinDrawerValues([
+                  data.appointeeName,
+                  data.appointeeRelation ? `Relation: ${data.appointeeRelation}` : null,
+                  data.appointeeAge ? `Age: ${data.appointeeAge}` : null,
+                ]),
+                'appointee',
+              ),
+            ]}
+          />
+
+          <DrawerSection
+            label="Bank Details"
+            rows={[
+              drawerRow('Bank Name', data.bankName, 'bank-name'),
+              drawerRow('Account Holder', data.accountHolderName, 'account-holder'),
+              drawerRow('Account Number', data.accountNumber, 'account-number'),
+              drawerRow('Account Type', data.accountType, 'account-type'),
+              drawerRow('IFSC / MICR', ifscMicr, 'ifsc-micr'),
+              drawerRow('Branch Address', data.bankAddress, 'bank-address'),
+            ]}
+          />
+
+          <DrawerSection
+            label="Family & Personal Health"
+            rows={[
+              drawerRow('Father', father, 'father'),
+              drawerRow('Mother', mother, 'mother'),
+              drawerRow('Spouse', spouseHealth, 'spouse-health'),
+              data.siblings?.length > 0 && drawerRow(
+                `Siblings (${data.siblings.length})`,
+                data.siblings.map((s) => joinDrawerValues([
+                  s.relation,
+                  s.health,
+                  s.age ? `${s.age} yrs` : null,
+                  s.diedAge ? `Died age: ${s.diedAge}` : null,
+                  s.diedYear ? `Died year: ${s.diedYear}` : null,
+                  s.diedCause ? `Cause: ${s.diedCause}` : null,
+                ])).filter(Boolean).join('; '),
+                'siblings',
+              ),
+              data.children?.length > 0 && drawerRow(
+                `Children (${data.children.length})`,
+                data.children.map((child, index) => joinDrawerValues([
+                  `Child ${index + 1}`,
+                  child.health,
+                  child.age ? `${child.age} yrs` : null,
+                  child.diedAge ? `Died age: ${child.diedAge}` : null,
+                  child.diedYear ? `Died year: ${child.diedYear}` : null,
+                  child.diedCause ? `Cause: ${child.diedCause}` : null,
+                ])).filter(Boolean).join('; '),
+                'children',
+              ),
+              drawerRow('Height / Weight / Abdomen', bodyMetrics, 'body-metrics'),
+              drawerRow('Operations', joinDrawerValues([data.operations, data.operationsDetails ? `Details: ${data.operationsDetails}` : null]), 'operations'),
+              drawerRow('Diseases', joinDrawerValues([data.disease, data.diseaseDetails ? `Details: ${data.diseaseDetails}` : null]), 'diseases'),
+              drawerRow('Pregnancy', joinDrawerValues([data.pregnancy, getDrawerDate(data.lastDelivery) ? `Last delivery: ${getDrawerDate(data.lastDelivery)}` : null]), 'pregnancy'),
+            ]}
+          />
+
+          {previousPolicies.length > 0 && (
+            <DrawerSection
+              label={`Previous Policies (${previousPolicies.length})`}
+              rows={previousPolicies.map((policy, index) => drawerRow(
+                `Policy ${index + 1}`,
+                joinDrawerValues([
+                  policy.policyNumber ? `#${policy.policyNumber}` : null,
+                  policy.branch ? `Branch: ${policy.branch}` : null,
+                  policy.planTerm ? `Plan: ${policy.planTerm}` : null,
+                  getDrawerMoney(policy.sumAssured) ? `${getDrawerMoney(policy.sumAssured)} cover` : null,
+                  getDrawerMoney(policy.premium) ? `${getDrawerMoney(policy.premium)} premium` : null,
+                  policy.mode ? `Mode: ${policy.mode}` : null,
+                  policy.inforce ? `Status: ${policy.inforce}` : null,
+                  getDrawerDate(policy.commencementDate) ? `DOC: ${getDrawerDate(policy.commencementDate)}` : null,
+                ]),
+                `previous-policy-${index}`,
+              ))}
+            />
+          )}
+
+          <DrawerSection
+            label="Ownership & submission"
+            rows={[
+              drawerRow('Applicant / owner', record.ownerName, 'owner'),
+              drawerRow('Submitted by', record.submittedByName, 'submitted-by'),
+              drawerRow('Email', record.submittedByEmail, 'submitted-email'),
+            ]}
+          />
         </div>
         <div className="drawer-footer">
           <button className="button button-secondary" onClick={onClose} type="button">Close</button>
