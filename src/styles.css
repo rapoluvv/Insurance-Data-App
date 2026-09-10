@@ -1918,7 +1918,7 @@ button:disabled {
 .records-table-head,
 .record-row {
   display: grid;
-  grid-template-columns: 32px minmax(170px, 1.2fr) minmax(160px, 1fr) minmax(120px, 0.85fr) minmax(90px, 0.65fr) 85px 72px;
+  grid-template-columns: 32px minmax(170px, 1.2fr) minmax(160px, 1fr) minmax(120px, 0.85fr) minmax(105px, 0.75fr) minmax(90px, 0.65fr) 85px 72px;
   align-items: center;
   gap: 14px;
   padding: 0 18px;
@@ -2183,10 +2183,20 @@ button:disabled {
   line-height: 1.25;
 }
 
-.record-date {
+.record-date,
+.record-submitted-date {
   color: var(--muted);
   font-family: 'IBM Plex Mono', monospace;
   font-size: 9px;
+}
+
+.record-mobile-label {
+  display: none;
+}
+
+.record-date-empty {
+  color: #adb8b1;
+  font-style: italic;
 }
 
 .record-doc {
@@ -3246,7 +3256,7 @@ button:disabled {
 
   .records-table-head,
   .record-row {
-    grid-template-columns: minmax(180px, 1.2fr) minmax(150px, 1fr) 85px 80px 62px;
+    grid-template-columns: 28px minmax(150px, 1.2fr) minmax(135px, 1fr) minmax(95px, 0.8fr) minmax(95px, 0.8fr) minmax(80px, 0.65fr) 75px 64px;
     gap: 11px;
     padding-inline: 16px;
   }
@@ -3695,6 +3705,24 @@ button:disabled {
     display: none;
   }
 
+  .record-submitted-date {
+    display: block;
+    grid-column: 2 / 3;
+    padding-left: 45px;
+    margin-top: 4px;
+    font-size: 9.5px;
+  }
+
+  .record-mobile-label {
+    display: inline;
+    margin-right: 6px;
+    color: var(--muted);
+    font-family: var(--font-sans);
+    font-size: 8px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
   .record-row > .status-badge {
     grid-column: 3 / 4;
     grid-row: 1;
@@ -4123,4 +4151,3 @@ button:disabled {
   padding: 12px 14px;
   margin-top: 4px;
 }
-

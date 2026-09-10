@@ -317,14 +317,24 @@ function formatMoney(value) {
 }
 
 function formatDate(value) {
-  if (!value) return 'No date';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'No date';
+  const timestamp = getDateTimestamp(value);
+  if (timestamp === null) return 'No date';
   return new Intl.DateTimeFormat('en-IN', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
-  }).format(date);
+  }).format(new Date(timestamp));
+}
+
+function getDateTimestamp(value) {
+  if (!value) return null;
+  const date = typeof value.toDate === 'function' ? value.toDate() : new Date(value);
+  const timestamp = date.getTime();
+  return Number.isNaN(timestamp) ? null : timestamp;
+}
+
+function getImportOrder(record) {
+  return Number.isInteger(record.importOrder) ? record.importOrder : Number.MAX_SAFE_INTEGER;
 }
 
 function getDateKey(date) {
@@ -1043,7 +1053,7 @@ function RecordsView({
   onImport,
   onStartNew,
 }) {
-  const [sortField, setSortField] = useState('doc');
+  const [sortField, setSortField] = useState('submittedAt');
   const [sortDirection, setSortDirection] = useState('desc');
   const [selectedIds, setSelectedIds] = useState(new Set());
 
@@ -1072,6 +1082,24 @@ function RecordsView({
       let bVal;
 
       switch (sortField) {
+        case 'submittedAt': {
+          const aSubmittedAt = getDateTimestamp(a.submittedAt);
+          const bSubmittedAt = getDateTimestamp(b.submittedAt);
+
+          if (aSubmittedAt === null && bSubmittedAt === null) {
+            const aImportOrder = getImportOrder(a);
+            const bImportOrder = getImportOrder(b);
+            if (aImportOrder < bImportOrder) return -1;
+            if (aImportOrder > bImportOrder) return 1;
+            return 0;
+          }
+          if (aSubmittedAt === null) return 1;
+          if (bSubmittedAt === null) return -1;
+
+          aVal = aSubmittedAt;
+          bVal = bSubmittedAt;
+          break;
+        }
         case 'doc': {
           const aDoc = a.formData?.commencementDate || a.formData?.doc || a.commencementDate || '';
           const bDoc = b.formData?.commencementDate || b.formData?.doc || b.commencementDate || '';
@@ -1211,6 +1239,8 @@ function RecordsView({
               }}
               value={`${sortField}:${sortDirection}`}
             >
+              <option value="submittedAt:desc">Submitted (Newest first)</option>
+              <option value="submittedAt:asc">Submitted (Oldest first)</option>
               <option value="doc:desc">DOC (Latest first)</option>
               <option value="doc:asc">DOC (Earliest first)</option>
               <option value="updatedAt:desc">Updated (Newest first)</option>
@@ -1310,6 +1340,15 @@ function RecordsView({
             {renderSortIcon('doc')}
           </button>
           <button
+            className={`table-head-btn ${sortField === 'submittedAt' ? 'is-sorted' : ''}`}
+            onClick={() => handleSortToggle('submittedAt')}
+            title="Sort by Submitted date"
+            type="button"
+          >
+            <span>Submitted</span>
+            {renderSortIcon('submittedAt')}
+          </button>
+          <button
             className={`table-head-btn ${sortField === 'updatedAt' ? 'is-sorted' : ''}`}
             onClick={() => handleSortToggle('updatedAt')}
             title="Sort by Date Updated"
@@ -1331,6 +1370,7 @@ function RecordsView({
         </div>
         {filteredRecords.map((record) => {
           const docDate = record.formData?.commencementDate || record.formData?.doc || record.commencementDate;
+          const hasSubmittedDate = getDateTimestamp(record.submittedAt) !== null;
           const isChecked = selectedIds.has(record.id);
           return (
             <div className={`record-row ${isChecked ? 'is-row-selected' : ''}`} key={record.id}>
@@ -1365,6 +1405,10 @@ function RecordsView({
                 ) : (
                   <span className="record-doc-empty">Not specified</span>
                 )}
+              </div>
+              <div className="record-date record-submitted-date">
+                <span className="record-mobile-label">Submitted</span>
+                {hasSubmittedDate ? formatDate(record.submittedAt) : <span className="record-date-empty">Not recorded</span>}
               </div>
               <span className="record-date">{formatDate(record.updatedAt)}</span>
               <StatusBadge status={record.status} />

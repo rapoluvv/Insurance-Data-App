@@ -30,6 +30,7 @@ const demoRecords = [
     premium: 48000,
     sumAssured: 1500000,
     status: 'submitted',
+    submittedAt: '2026-09-08T10:32:00.000Z',
     updatedAt: '2026-09-08T10:32:00.000Z',
     formData: {
       fullName: 'Aarav Mehta',
@@ -438,7 +439,7 @@ export function exportRecords(records) {
 
 export function convertLegacyRecordToDatabook(item, index = 0, session = null) {
   if (item && item.formData && (item.id || item.applicantName)) {
-    return item;
+    return { ...item, importOrder: index };
   }
 
   const parseJsonSafe = (val, fallback = []) => {
@@ -636,6 +637,12 @@ export function convertLegacyRecordToDatabook(item, index = 0, session = null) {
 
   const applicantName = formData.fullName || `Applicant ${index + 1}`;
   const now = new Date().toISOString();
+  const submittedAt = item.submittedAt
+    || item.submittedDate
+    || item.submitted_date
+    || item.submissionDate
+    || item.dateSubmitted
+    || null;
   const id = `CASE-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
 
   const submittedByName = session?.name
@@ -657,7 +664,8 @@ export function convertLegacyRecordToDatabook(item, index = 0, session = null) {
     submittedByName,
     submittedById: session?.id || 'imported',
     updatedAt: item.lastEdited || now,
-    submittedAt: item.lastEdited || now,
+    submittedAt,
+    importOrder: index,
     formData,
   };
 }
