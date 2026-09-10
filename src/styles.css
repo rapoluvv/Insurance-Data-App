@@ -2139,6 +2139,14 @@ button:disabled {
   display: block;
 }
 
+.record-person-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  text-align: left;
+}
+
 .record-person strong,
 .record-plan strong {
   overflow: hidden;
@@ -2150,13 +2158,29 @@ button:disabled {
 
 .record-person small,
 .record-plan small {
-  margin-top: 4px;
+  margin-top: 3px;
   overflow: hidden;
   color: var(--muted);
   font-family: 'IBM Plex Mono', monospace;
   font-size: 9px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.record-person .record-case-number {
+  margin-top: 2px;
+  color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.02em;
+}
+
+.record-person .record-submitted-by {
+  margin-top: 2px;
+  color: #798880;
+  font-family: var(--font-sans);
+  font-size: 10px;
+  line-height: 1.25;
 }
 
 .record-date {

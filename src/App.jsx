@@ -1345,9 +1345,14 @@ function RecordsView({
               </div>
               <button className="record-person" onClick={() => onOpen(record)} type="button">
                 <span className="person-mark">{(record.applicantName || '?').slice(0, 1).toUpperCase()}</span>
-                <span>
+                <span className="record-person-info">
                   <strong>{record.applicantName || 'Unnamed applicant'}</strong>
-                  <small>{record.caseNumber || record.id} · {role === 'agent' ? `Submitted by ${record.submittedByName || record.ownerName || 'Customer'}` : 'Your case'}</small>
+                  <small className="record-case-number">{record.caseNumber || record.id}</small>
+                  <small className="record-submitted-by">
+                    {role === 'agent'
+                      ? `Submitted by ${record.submittedByName || record.agentName || user.name || 'User'}`
+                      : 'Your case'}
+                  </small>
                 </span>
               </button>
               <div className="record-plan">
@@ -2594,9 +2599,11 @@ function App() {
   function buildRecord(status, session = authSession.user) {
     const existing = records.find((record) => record.id === editingId);
     const now = new Date().toISOString();
-    const submittedByName = session?.mode === 'anonymous'
-      ? form.fullName || 'Guest'
-      : session?.name || user.name || 'Unknown user';
+    const submittedByName = role === 'agent'
+      ? user.name || session?.name || 'Rapolu Venkateshwarlu'
+      : session?.mode === 'anonymous'
+        ? (session?.name || 'Guest')
+        : session?.name || user.name || 'Unknown user';
     const submittedByMode = session?.mode === 'anonymous'
       ? 'anonymous'
       : session?.mode === 'guest'

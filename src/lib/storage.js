@@ -638,6 +638,11 @@ export function convertLegacyRecordToDatabook(item, index = 0, session = null) {
   const now = new Date().toISOString();
   const id = `CASE-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
 
+  const submittedByName = session?.name
+    || (session?.role === 'agent' ? 'Rapolu Venkateshwarlu' : '')
+    || item.submittedByName
+    || (session?.mode === 'guest' ? 'Guest user' : 'Agent');
+
   return {
     id,
     caseNumber: id,
@@ -649,6 +654,8 @@ export function convertLegacyRecordToDatabook(item, index = 0, session = null) {
     premium: Number(formData.premium) || 0,
     sumAssured: Number(formData.sumAssured) || 0,
     status: item.status || 'submitted',
+    submittedByName,
+    submittedById: session?.id || 'imported',
     updatedAt: item.lastEdited || now,
     submittedAt: item.lastEdited || now,
     formData,
